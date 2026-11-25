@@ -22,7 +22,6 @@ from itsdangerous import URLSafeTimedSerializer, BadSignature
 import uuid
 import io
 import re
-import requests
 import csv
 import zipfile
 from flask_mail import Mail, Message
@@ -437,7 +436,7 @@ def test_email():
     recipient = session.get("user_email")
 
     if not recipient:
-        return "User email not found in session.", 400 
+        return "User email not found in session.", 400
 
     try:
         msg = Message(
@@ -1201,6 +1200,8 @@ def get_email_typo_suggestion(email):
     return None
 
 
+
+
 @app.route("/register", methods=["GET", "POST"])
 def register():
     if request.method == "POST":
@@ -1210,7 +1211,7 @@ def register():
         password = request.form.get("password", "")
         consent = request.form.get("consent")
 
-        # Validate name on the server
+        # Validate name
         if not re.fullmatch(r"[A-Za-z]+(?:[ '-][A-Za-z]+)*", name):
             flash(
                 "Please enter a valid name using letters only. "
@@ -1219,7 +1220,7 @@ def register():
             )
             return render_template("register.html")
 
-        # Validate basic email format
+        # Validate email format
         if (
             not email
             or len(email) > 120
@@ -1233,9 +1234,8 @@ def register():
             flash("Please enter a valid email address.", "error")
             return render_template("register.html")
 
-        # Reject common email domain typos
+        # Check common email domain typos
         suggested_email = get_email_typo_suggestion(email)
-
         if suggested_email:
             flash(
                 f"Please check your email address. Did you mean {suggested_email}?",
@@ -1243,24 +1243,38 @@ def register():
             )
             return render_template("register.html")
 
+        # Required fields
         if not name or not phone or not email or not password:
             flash("Please fill in all required fields.", "error")
             return render_template("register.html")
 
+        # Password validation
         if len(password) < 8 or len(password) > 128:
-            flash("Password must be between 8 and 128 characters long.", "error")
+            flash(
+                "Password must be between 8 and 128 characters long.",
+                "error",
+            )
             return render_template("register.html")
 
         if not re.search(r"[A-Z]", password):
-            flash("Password must contain at least one uppercase letter (A-Z).", "error")
+            flash(
+                "Password must contain at least one uppercase letter (A-Z).",
+                "error",
+            )
             return render_template("register.html")
 
         if not re.search(r"[a-z]", password):
-            flash("Password must contain at least one lowercase letter (a-z).", "error")
+            flash(
+                "Password must contain at least one lowercase letter (a-z).",
+                "error",
+            )
             return render_template("register.html")
 
         if not re.search(r"[0-9]", password):
-            flash("Password must contain at least one number (0-9).", "error")
+            flash(
+                "Password must contain at least one number (0-9).",
+                "error",
+            )
             return render_template("register.html")
 
         if not re.search(r"[^A-Za-z0-9]", password):
@@ -1271,10 +1285,13 @@ def register():
             return render_template("register.html")
 
         if not consent:
-            flash("Please agree to the terms and privacy policy.", "error")
+            flash(
+                "Please agree to the terms and privacy policy.",
+                "error",
+            )
             return render_template("register.html")
 
-        
+        # Check existing account
         existing_user = db.session.scalar(
             db.select(User).filter_by(email=email)
         )
@@ -1286,11 +1303,17 @@ def register():
                     "Please verify it or request a new code.",
                     "error",
                 )
-                return redirect(url_for("verify_email", email=email))
+                return redirect(
+                    url_for("verify_email", email=email)
+                )
 
-            flash("An account with this email already exists.", "error")
+            flash(
+                "An account with this email already exists.",
+                "error",
+            )
             return render_template("register.html")
 
+        # Generate OTP
         otp = str(secrets.randbelow(900000) + 100000)
         now = datetime.now(timezone.utc).replace(tzinfo=None)
 
@@ -1307,22 +1330,35 @@ def register():
         )
 
         try:
-            db.session.add(user)
-            db.session.flush()
+            api_key = os.environ.get("RESEND_API_KEY", "").strip()
 
-            msg = Message(
-                subject="Verify your Tagbandhu email",
-                recipients=[email],
-                body=(
-                    f"Hi {name},\n\n"
-                    f"Your Tagbandhu verification code is: {otp}\n\n"
-                    "This code expires in 5 minutes. "
-                    "Do not share it with anyone.\n\n"
-                    "If you did not request this code, ignore this email."
-                ),
+            if not api_key:
+                raise RuntimeError("RESEND_API_KEY is not configured.")
+
+            response = requests.post(
+                "https://api.resend.com/emails",
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "from": "Tagbandhu <onboarding@resend.dev>",
+                    "to": [email],
+                    "subject": "Verify your Tagbandhu email",
+                    "text": (
+                        f"Hi {name},\n\n"
+                        f"Your Tagbandhu verification code is: {otp}\n\n"
+                        "This code expires in 5 minutes. "
+                        "Do not share it with anyone.\n\n"
+                        "If you did not request this code, ignore this email."
+                    ),
+                },
+                timeout=10,
             )
+            response.raise_for_status()
 
-            mail.send(msg)
+            # Save account only after the email API accepts the request
+            db.session.add(user)
             db.session.commit()
 
         except Exception:
@@ -1337,10 +1373,14 @@ def register():
             )
             return render_template("register.html")
 
-        flash("A verification code has been sent to your email.", "success")
+        flash(
+            "A verification code has been sent to your email.",
+            "success",
+        )
         return redirect(url_for("verify_email", email=email))
 
     return render_template("register.html")
+
 
 @app.route("/verify-email", methods=["GET", "POST"])
 def verify_email():
@@ -1398,7 +1438,6 @@ def verify_email():
 
     return render_template("verify_email.html", email=email)
 
-
 @app.route("/resend-verification", methods=["POST"])
 def resend_verification():
     email = request.form.get("email", "").strip().lower()
@@ -1412,113 +1451,50 @@ def resend_verification():
         return redirect(url_for("register"))
 
     if user.email_verified:
-        flash(
-            "Your email is already verified. Please log in.",
-            "success",
-        )
+        flash("Your email is already verified. Please log in.", "success")
         return redirect(url_for("login"))
 
     now = datetime.now(timezone.utc).replace(tzinfo=None)
 
-    # Keep the 60-second resend cooldown
     if user.email_otp_last_sent_at:
-        elapsed = (
-            now - user.email_otp_last_sent_at
-        ).total_seconds()
+        elapsed = (now - user.email_otp_last_sent_at).total_seconds()
 
         if elapsed < 60:
             wait_seconds = max(1, int(60 - elapsed))
             flash(
-                f"Please wait {wait_seconds} seconds "
-                "before requesting another code.",
+                f"Please wait {wait_seconds} seconds before requesting another code.",
                 "error",
             )
-            return redirect(
-                url_for("verify_email", email=email)
-            )
+            return redirect(url_for("verify_email", email=email))
 
-    # Generate a new 6-digit OTP
     otp = str(secrets.randbelow(900000) + 100000)
 
-    api_key = os.environ.get("RESEND_API_KEY", "").strip()
-
-    if not api_key:
-        app.logger.error("RESEND_API_KEY is not configured.")
-        flash(
-            "Email service is temporarily unavailable. "
-            "Please try again later.",
-            "error",
-        )
-        return redirect(
-            url_for("verify_email", email=email)
-        )
-
-    # Send the email using Resend's HTTPS API
-    try:
-        response = requests.post(
-            "https://api.resend.com/emails",
-            headers={
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json",
-            },
-            json={
-                "from": "Tagbandhu <onboarding@resend.dev>",
-                "to": [email],
-                "subject": "Your new Tagbandhu verification code",
-                "text": (
-                    f"Hi {user.name},\n\n"
-                    f"Your new Tagbandhu verification code is: {otp}\n\n"
-                    "This code expires in 5 minutes. "
-                    "Do not share it with anyone.\n\n"
-                    "If you did not request this code, "
-                    "ignore this email."
-                ),
-            },
-            timeout=10,
-        )
-        response.raise_for_status()
-
-    except requests.RequestException:
-        app.logger.exception(
-            "Failed to resend verification email."
-        )
-        flash(
-            "Could not send a new code. Please try again later.",
-            "error",
-        )
-        return redirect(
-            url_for("verify_email", email=email)
-        )
-
-    # Update OTP only after the email API accepts the request
-    try:
-        user.email_otp_hash = generate_password_hash(otp)
-        user.email_otp_expires_at = (
-            now + timedelta(minutes=5)
-        )
-        user.email_otp_attempts = 0
-        user.email_otp_last_sent_at = now
-
-        db.session.commit()
-
-    except Exception:
-        db.session.rollback()
-        app.logger.exception(
-            "Failed to save the new verification OTP."
-        )
-        flash(
-            "Could not update the verification code. "
-            "Please try again.",
-            "error",
-        )
-        return redirect(
-            url_for("verify_email", email=email)
-        )
-
-    flash(
-        "A new verification code has been sent to your email.",
-        "success",
+    msg = Message(
+        subject="Your new Tagbandhu verification code",
+        recipients=[email],
+        body=(
+            f"Hi {user.name},\n\n"
+            f"Your new Tagbandhu verification code is: {otp}\n\n"
+            "This code expires in 5 minutes. "
+            "Do not share it with anyone.\n\n"
+            "If you did not request this code, ignore this email."
+        ),
     )
+
+    try:
+        mail.send(msg)
+    except Exception:
+        app.logger.exception("Failed to resend verification email.")
+        flash("Could not send a new code. Please try again later.", "error")
+        return redirect(url_for("verify_email", email=email))
+
+    user.email_otp_hash = generate_password_hash(otp)
+    user.email_otp_expires_at = now + timedelta(minutes=5)
+    user.email_otp_attempts = 0
+    user.email_otp_last_sent_at = now
+    db.session.commit()
+
+    flash("A new verification code has been sent to your email.", "success")
     return redirect(url_for("verify_email", email=email))
 
 @app.route("/login", methods=["GET", "POST"])
