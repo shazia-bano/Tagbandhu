@@ -1398,6 +1398,7 @@ def verify_email():
 
     return render_template("verify_email.html", email=email)
 
+
 @app.route("/resend-verification", methods=["POST"])
 def resend_verification():
     email = request.form.get("email", "").strip().lower()
@@ -1411,50 +1412,113 @@ def resend_verification():
         return redirect(url_for("register"))
 
     if user.email_verified:
-        flash("Your email is already verified. Please log in.", "success")
+        flash(
+            "Your email is already verified. Please log in.",
+            "success",
+        )
         return redirect(url_for("login"))
 
     now = datetime.now(timezone.utc).replace(tzinfo=None)
 
+    # Keep the 60-second resend cooldown
     if user.email_otp_last_sent_at:
-        elapsed = (now - user.email_otp_last_sent_at).total_seconds()
+        elapsed = (
+            now - user.email_otp_last_sent_at
+        ).total_seconds()
 
         if elapsed < 60:
             wait_seconds = max(1, int(60 - elapsed))
             flash(
-                f"Please wait {wait_seconds} seconds before requesting another code.",
+                f"Please wait {wait_seconds} seconds "
+                "before requesting another code.",
                 "error",
             )
-            return redirect(url_for("verify_email", email=email))
+            return redirect(
+                url_for("verify_email", email=email)
+            )
 
+    # Generate a new 6-digit OTP
     otp = str(secrets.randbelow(900000) + 100000)
 
-    msg = Message(
-        subject="Your new Tagbandhu verification code",
-        recipients=[email],
-        body=(
-            f"Hi {user.name},\n\n"
-            f"Your new Tagbandhu verification code is: {otp}\n\n"
-            "This code expires in 5 minutes. "
-            "Do not share it with anyone.\n\n"
-            "If you did not request this code, ignore this email."
-        ),
-    )
+    api_key = os.environ.get("RESEND_API_KEY", "").strip()
 
+    if not api_key:
+        app.logger.error("RESEND_API_KEY is not configured.")
+        flash(
+            "Email service is temporarily unavailable. "
+            "Please try again later.",
+            "error",
+        )
+        return redirect(
+            url_for("verify_email", email=email)
+        )
+
+    # Send the email using Resend's HTTPS API
     try:
-        mail.send(msg)
+        response = requests.post(
+            "https://api.resend.com/emails",
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "from": "Tagbandhu <onboarding@resend.dev>",
+                "to": [email],
+                "subject": "Your new Tagbandhu verification code",
+                "text": (
+                    f"Hi {user.name},\n\n"
+                    f"Your new Tagbandhu verification code is: {otp}\n\n"
+                    "This code expires in 5 minutes. "
+                    "Do not share it with anyone.\n\n"
+                    "If you did not request this code, "
+                    "ignore this email."
+                ),
+            },
+            timeout=10,
+        )
+        response.raise_for_status()
+
+    except requests.RequestException:
+        app.logger.exception(
+            "Failed to resend verification email."
+        )
+        flash(
+            "Could not send a new code. Please try again later.",
+            "error",
+        )
+        return redirect(
+            url_for("verify_email", email=email)
+        )
+
+    # Update OTP only after the email API accepts the request
+    try:
+        user.email_otp_hash = generate_password_hash(otp)
+        user.email_otp_expires_at = (
+            now + timedelta(minutes=5)
+        )
+        user.email_otp_attempts = 0
+        user.email_otp_last_sent_at = now
+
+        db.session.commit()
+
     except Exception:
-        app.logger.exception("Failed to resend verification email.")
-        flash("Could not send a new code. Please try again later.", "error")
-        return redirect(url_for("verify_email", email=email))
+        db.session.rollback()
+        app.logger.exception(
+            "Failed to save the new verification OTP."
+        )
+        flash(
+            "Could not update the verification code. "
+            "Please try again.",
+            "error",
+        )
+        return redirect(
+            url_for("verify_email", email=email)
+        )
 
-    user.email_otp_hash = generate_password_hash(otp)
-    user.email_otp_expires_at = now + timedelta(minutes=5)
-    user.email_otp_attempts = 0
-    user.email_otp_last_sent_at = now
-    db.session.commit()
-
-    flash("A new verification code has been sent to your email.", "success")
+    flash(
+        "A new verification code has been sent to your email.",
+        "success",
+    )
     return redirect(url_for("verify_email", email=email))
 
 @app.route("/login", methods=["GET", "POST"])
