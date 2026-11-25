@@ -1,3 +1,9 @@
 Flask
 Flask-SQLAlchemy
+Flask-Mail
+Flask-WTF
+Flask-Migrate
+python-dotenv
+qrcode[pil]
+reportlab
 gunicorn
