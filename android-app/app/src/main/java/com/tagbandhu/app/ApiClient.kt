@@ -10,16 +10,10 @@ import retrofit2.http.Header
 import retrofit2.http.POST
 import retrofit2.http.PUT
 
+// Login
 data class LoginRequest(
     val email: String,
     val password: String
-)
-
-data class ApiUser(
-    val id: Int,
-    val name: String,
-    val email: String,
-    val phone: String = ""
 )
 
 data class LoginResponse(
@@ -29,6 +23,50 @@ data class LoginResponse(
     val user: ApiUser? = null
 )
 
+// User
+data class ApiUser(
+    val id: Int,
+    val name: String,
+    val email: String,
+    val phone: String = ""
+)
+
+// Registration
+data class RegisterRequest(
+    val name: String,
+    val phone: String,
+    val email: String,
+    val password: String,
+    val consent: Boolean
+)
+
+data class RegisterResponse(
+    val success: Boolean,
+    val message: String
+)
+
+// Email OTP verification
+data class VerifyEmailRequest(
+    val email: String,
+    val otp: String
+)
+
+data class VerifyEmailResponse(
+    val success: Boolean,
+    val message: String
+)
+
+// Resend OTP
+data class ResendOtpRequest(
+    val email: String
+)
+
+data class ResendOtpResponse(
+    val success: Boolean,
+    val message: String
+)
+
+// Profile
 data class ProfileUpdateRequest(
     val name: String,
     val phone: String
@@ -40,6 +78,7 @@ data class ProfileResponse(
     val user: ApiUser? = null
 )
 
+// Tags
 data class TagItem(
     val id: Int,
     val tag_code: String,
@@ -53,12 +92,28 @@ data class TagsResponse(
     val tags: List<TagItem>
 )
 
+// API endpoints
 interface TagbandhuApi {
 
     @POST("api/login")
     fun login(
         @Body request: LoginRequest
     ): Call<LoginResponse>
+
+    @POST("api/register")
+    fun register(
+        @Body request: RegisterRequest
+    ): Call<RegisterResponse>
+
+    @POST("api/verify-email")
+    fun verifyEmail(
+        @Body request: VerifyEmailRequest
+    ): Call<VerifyEmailResponse>
+
+    @POST("api/resend-verification")
+    fun resendVerification(
+        @Body request: ResendOtpRequest
+    ): Call<ResendOtpResponse>
 
     @GET("api/my-tags")
     fun getMyTags(
@@ -77,10 +132,10 @@ interface TagbandhuApi {
     ): Call<ProfileResponse>
 }
 
+// Retrofit client
 object ApiClient {
 
-    private const val BASE_URL =
-        "http://10.75.90.87:5000/"
+    private const val BASE_URL = "http://10.135.243.87:5000/"
 
     val service: TagbandhuApi by lazy {
         Retrofit.Builder()

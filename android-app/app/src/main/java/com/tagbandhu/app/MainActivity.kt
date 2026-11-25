@@ -1,5 +1,8 @@
 package com.tagbandhu.app
 
+import androidx.compose.foundation.layout.Row
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.TextButton
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import retrofit2.Call
 import retrofit2.Callback
@@ -30,7 +33,10 @@ import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
-
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.TextButton
+import androidx.compose.ui.text.input.KeyboardType
 private val Forest = Color(0xFF173D35)
 private val Mint = Color(0xFFDDF3D0)
 private val Cream = Color(0xFFF7F8F3)
@@ -47,6 +53,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+
 @Composable
 fun TagbandhuApp() {
     var email by remember { mutableStateOf("") }
@@ -55,6 +62,15 @@ fun TagbandhuApp() {
     var userName by remember { mutableStateOf("") }
     var message by remember { mutableStateOf("") }
     var loading by remember { mutableStateOf(false) }
+
+    var screen by remember { mutableStateOf("login") }
+
+    var registerName by remember { mutableStateOf("") }
+    var registerPhone by remember { mutableStateOf("") }
+    var registerEmail by remember { mutableStateOf("") }
+    var registerPassword by remember { mutableStateOf("") }
+    var consent by remember { mutableStateOf(false) }
+    var otp by remember { mutableStateOf("") }
 
     if (token != null) {
         TagbandhuDashboard(
@@ -76,7 +92,7 @@ fun TagbandhuApp() {
             verticalArrangement = Arrangement.Center
         ) {
             Text(
-                "🏷️ Tagbandhu",
+                text = "🏷️ Tagbandhu",
                 fontSize = 30.sp,
                 fontWeight = FontWeight.ExtraBold,
                 color = Forest
@@ -84,116 +100,401 @@ fun TagbandhuApp() {
 
             Spacer(Modifier.height(8.dp))
 
-            Text(
-                "Login to access your real tags",
-                color = Muted
-            )
+            when (screen) {
 
-            Spacer(Modifier.height(28.dp))
+                "login" -> {
+                    Text(
+                        text = "Login to access your real tags",
+                        color = Muted
+                    )
 
-            OutlinedTextField(
-                value = email,
-                onValueChange = { email = it },
-                label = { Text("Email address") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true
-            )
+                    Spacer(Modifier.height(28.dp))
 
-            Spacer(Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = email,
+                        onValueChange = { email = it },
+                        label = { Text("Email address") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
 
+                    Spacer(Modifier.height(12.dp))
 
-            var passwordVisible by remember { mutableStateOf(false) }
+                    OutlinedTextField(
+                        value = password,
+                        onValueChange = { password = it },
+                        label = { Text("Password") },
+                        visualTransformation =
+                            PasswordVisualTransformation(),
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
 
-            OutlinedTextField(
-                value = password,
-                onValueChange = { password = it },
-                label = { Text("Password") },
-                visualTransformation = if (passwordVisible) {
-                    androidx.compose.ui.text.input.VisualTransformation.None
-                } else {
-                    PasswordVisualTransformation()
-                },
-                trailingIcon = {
-                    IconButton(
-                        onClick = { passwordVisible = !passwordVisible }
+                    Spacer(Modifier.height(18.dp))
+
+                    Button(
+                        onClick = {
+                            if (email.isBlank() || password.isBlank()) {
+                                message = "Email aur password enter karo."
+                                return@Button
+                            }
+
+                            loading = true
+                            message = ""
+
+                            ApiClient.service.login(
+                                LoginRequest(
+                                    email = email.trim(),
+                                    password = password
+                                )
+                            ).enqueue(object : Callback<LoginResponse> {
+
+                                override fun onResponse(
+                                    call: Call<LoginResponse>,
+                                    response: Response<LoginResponse>
+                                ) {
+                                    loading = false
+                                    val result = response.body()
+
+                                    if (
+                                        response.isSuccessful &&
+                                        result?.success == true &&
+                                        !result.token.isNullOrBlank()
+                                    ) {
+                                        userName = result.user?.name ?: ""
+                                        token = result.token
+                                    } else {
+                                        message = result?.message
+                                            ?: "Login failed. Check your details or verify your email."
+                                    }
+                                }
+
+                                override fun onFailure(
+                                    call: Call<LoginResponse>,
+                                    t: Throwable
+                                ) {
+                                    loading = false
+                                    message = "Server connection failed: " +
+                                            (t.message ?: "Try again")
+                                }
+                            })
+                        },
+                        enabled = !loading,
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Icon(
-                            imageVector = if (passwordVisible) {
-                                androidx.compose.material.icons.Icons.Default.VisibilityOff
-                            } else {
-                                androidx.compose.material.icons.Icons.Default.Visibility
-                            },
-                            contentDescription = if (passwordVisible) {
-                                "Hide password"
-                            } else {
-                                "Show password"
-                            }
-                        )
-                    }
-                },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true
-            )
-
-
-            Spacer(Modifier.height(18.dp))
-
-            Button(
-                onClick = {
-                    if (email.isBlank() || password.isBlank()) {
-                        message = "Email aur password enter karo."
-                        return@Button
+                        Text(if (loading) "Logging in..." else "Login")
                     }
 
-                    loading = true
-                    message = ""
+                    TextButton(
+                        onClick = {
+                            screen = "register"
+                            message = ""
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("New to Tagbandhu? Create Account")
+                    }
+                }
 
-                    ApiClient.service.login(
-                        LoginRequest(
-                            email = email.trim(),
-                            password = password
+                "register" -> {
+                    Text(
+                        text = "Create your account",
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Forest
+                    )
+
+                    Spacer(Modifier.height(8.dp))
+
+                    Text(
+                        text = "Enter your details to get started.",
+                        color = Muted
+                    )
+
+                    Spacer(Modifier.height(20.dp))
+
+                    OutlinedTextField(
+                        value = registerName,
+                        onValueChange = { registerName = it },
+                        label = { Text("Full name") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+
+                    Spacer(Modifier.height(12.dp))
+
+                    OutlinedTextField(
+                        value = registerPhone,
+                        onValueChange = { registerPhone = it },
+                        label = { Text("Phone number") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Phone
                         )
-                    ).enqueue(object : Callback<LoginResponse> {
+                    )
 
-                        override fun onResponse(
-                            call: Call<LoginResponse>,
-                            response: Response<LoginResponse>
-                        ) {
-                            loading = false
+                    Spacer(Modifier.height(12.dp))
 
-                            val result = response.body()
+                    OutlinedTextField(
+                        value = registerEmail,
+                        onValueChange = { registerEmail = it },
+                        label = { Text("Email address") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Email
+                        )
+                    )
 
-                            if (response.isSuccessful &&
-                                result?.success == true &&
-                                !result.token.isNullOrBlank()
+                    Spacer(Modifier.height(12.dp))
+
+                    OutlinedTextField(
+                        value = registerPassword,
+                        onValueChange = { registerPassword = it },
+                        label = { Text("Password") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        visualTransformation =
+                            PasswordVisualTransformation()
+                    )
+
+                    Spacer(Modifier.height(8.dp))
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Checkbox(
+                            checked = consent,
+                            onCheckedChange = { consent = it }
+                        )
+
+                        Text(
+                            text = "I agree to the terms and privacy policy."
+                        )
+                    }
+
+                    Spacer(Modifier.height(12.dp))
+
+                    Button(
+                        onClick = {
+                            if (
+                                registerName.isBlank() ||
+                                registerPhone.isBlank() ||
+                                registerEmail.isBlank() ||
+                                registerPassword.isBlank()
                             ) {
-                                userName = result.user?.name ?: ""
-                                token = result.token
-                            } else {
-                                message = result?.message
-                                    ?: "Login failed. Check the details."
+                                message = "Saari details fill karo."
+                                return@Button
                             }
-                        }
 
-                        override fun onFailure(
-                            call: Call<LoginResponse>,
-                            t: Throwable
-                        ) {
-                            loading = false
-                            message =
-                                "Server connection failed: " +
-                                        (t.message ?: "Try again")
-                        }
-                    })
-                },
-                enabled = !loading,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(if (loading) "Logging in..." else "Login")
+                            if (!consent) {
+                                message = "Please accept the consent."
+                                return@Button
+                            }
+
+                            loading = true
+                            message = ""
+
+                            ApiClient.service.register(
+                                RegisterRequest(
+                                    name = registerName.trim(),
+                                    phone = registerPhone.trim(),
+                                    email = registerEmail.trim().lowercase(),
+                                    password = registerPassword,
+                                    consent = consent
+                                )
+                            ).enqueue(object : Callback<RegisterResponse> {
+
+                                override fun onResponse(
+                                    call: Call<RegisterResponse>,
+                                    response: Response<RegisterResponse>
+                                ) {
+                                    loading = false
+                                    val result = response.body()
+
+                                    if (
+                                        response.isSuccessful &&
+                                        result?.success == true
+                                    ) {
+                                        email = registerEmail.trim().lowercase()
+                                        otp = ""
+                                        message = result.message
+                                        screen = "otp"
+                                    } else {
+                                        message = result?.message
+                                            ?: "Registration failed. Check the details or try another email."
+                                    }
+                                }
+
+                                override fun onFailure(
+                                    call: Call<RegisterResponse>,
+                                    t: Throwable
+                                ) {
+                                    loading = false
+                                    message = "Server connection failed: " +
+                                            (t.message ?: "Try again")
+                                }
+                            })
+                        },
+                        enabled = !loading,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            if (loading) "Creating account..."
+                            else "Create Account"
+                        )
+                    }
+
+                    TextButton(
+                        onClick = {
+                            screen = "login"
+                            message = ""
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Already registered? Login")
+                    }
+                }
+
+                "otp" -> {
+                    Text(
+                        text = "Verify your email",
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Forest
+                    )
+
+                    Spacer(Modifier.height(8.dp))
+
+                    Text(
+                        text = "Enter the 6-digit OTP sent to $email",
+                        color = Muted
+                    )
+
+                    Spacer(Modifier.height(20.dp))
+
+                    OutlinedTextField(
+                        value = otp,
+                        onValueChange = {
+                            otp = it.filter { char -> char.isDigit() }
+                                .take(6)
+                        },
+                        label = { Text("6-digit OTP") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Number
+                        )
+                    )
+
+                    Spacer(Modifier.height(16.dp))
+
+                    Button(
+                        onClick = {
+                            if (otp.length != 6) {
+                                message = "6-digit OTP enter karo."
+                                return@Button
+                            }
+
+                            loading = true
+                            message = ""
+
+                            ApiClient.service.verifyEmail(
+                                VerifyEmailRequest(
+                                    email = email.trim().lowercase(),
+                                    otp = otp
+                                )
+                            ).enqueue(object : Callback<VerifyEmailResponse> {
+
+                                override fun onResponse(
+                                    call: Call<VerifyEmailResponse>,
+                                    response: Response<VerifyEmailResponse>
+                                ) {
+                                    loading = false
+                                    val result = response.body()
+
+                                    if (
+                                        response.isSuccessful &&
+                                        result?.success == true
+                                    ) {
+                                        screen = "login"
+                                        password = ""
+                                        message =
+                                            "Email verified! Ab login karo."
+                                    } else {
+                                        message = result?.message
+                                            ?: "OTP verification failed. Check the OTP and try again."
+                                    }
+                                }
+
+                                override fun onFailure(
+                                    call: Call<VerifyEmailResponse>,
+                                    t: Throwable
+                                ) {
+                                    loading = false
+                                    message = "Server connection failed: " +
+                                            (t.message ?: "Try again")
+                                }
+                            })
+                        },
+                        enabled = !loading,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(if (loading) "Verifying..." else "Verify Email")
+                    }
+
+                    TextButton(
+                        onClick = {
+                            loading = true
+                            message = ""
+
+                            ApiClient.service.resendVerification(
+                                ResendOtpRequest(
+                                    email = email.trim().lowercase()
+                                )
+                            ).enqueue(object : Callback<ResendOtpResponse> {
+
+                                override fun onResponse(
+                                    call: Call<ResendOtpResponse>,
+                                    response: Response<ResendOtpResponse>
+                                ) {
+                                    loading = false
+                                    message = response.body()?.message
+                                        ?: "Could not resend OTP. Please wait and try again."
+                                }
+
+                                override fun onFailure(
+                                    call: Call<ResendOtpResponse>,
+                                    t: Throwable
+                                ) {
+                                    loading = false
+                                    message = "Server connection failed: " +
+                                            (t.message ?: "Try again")
+                                }
+                            })
+                        },
+                        enabled = !loading,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Resend OTP")
+                    }
+
+                    TextButton(
+                        onClick = {
+                            screen = "login"
+                            message = ""
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Back to Login")
+                    }
+                }
             }
 
             if (message.isNotBlank()) {
                 Spacer(Modifier.height(12.dp))
+
                 Text(
                     text = message,
                     color = MaterialTheme.colorScheme.error
@@ -563,11 +864,6 @@ fun TagbandhuDashboard(
 ) {
     val context = LocalContext.current
     var scannedResult by remember { mutableStateOf<String?>(null) }
-    var showLostItemForm by remember { mutableStateOf(false) }
-    var lostItemName by remember { mutableStateOf("") }
-    var lostItemLocation by remember { mutableStateOf("") }
-    var lostItemMessage by remember { mutableStateOf<String?>(null) }
-
     var showProfile by remember { mutableStateOf(false) }
     var userName by remember { mutableStateOf("") }
     var userPhone by remember { mutableStateOf("") }
@@ -733,14 +1029,6 @@ fun TagbandhuDashboard(
             }
         )
 
-        DashboardCard(
-            "🔎",
-            "Lost Item",
-            "Find or report a lost item",
-            onClick = {
-                showLostItemForm = !showLostItemForm
-            }
-        )
 
         DashboardCard(
             "👤",
@@ -887,66 +1175,6 @@ fun TagbandhuDashboard(
             color = Forest
         )
 
-        if (showLostItemForm) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Color.White, RoundedCornerShape(18.dp))
-                    .padding(16.dp)
-            ) {
-                Text(
-                    "Report a Lost Item",
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Forest
-                )
-
-                Spacer(Modifier.height(12.dp))
-
-                OutlinedTextField(
-                    value = lostItemName,
-                    onValueChange = { lostItemName = it },
-                    label = { Text("Item name") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
-                )
-
-                Spacer(Modifier.height(8.dp))
-
-                OutlinedTextField(
-                    value = lostItemLocation,
-                    onValueChange = { lostItemLocation = it },
-                    label = { Text("Last seen location") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
-                )
-
-                Spacer(Modifier.height(12.dp))
-
-                Button(
-                    onClick = {
-                        lostItemMessage =
-                            if (
-                                lostItemName.isNotBlank() &&
-                                lostItemLocation.isNotBlank()
-                            ) {
-                                "Report saved on this screen: $lostItemName"
-                            } else {
-                                "Please enter item name and location"
-                            }
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Submit Report")
-                }
-
-                lostItemMessage?.let {
-                    Spacer(Modifier.height(8.dp))
-                    Text(it, color = Forest)
-                }
-            }
-        }
-
         Spacer(Modifier.height(10.dp))
 
         if (tagsLoading) {
@@ -1026,7 +1254,6 @@ fun DashboardCard(
     val cardLabel = when (title) {
         "My Tags" -> "TAG"
         "Scan QR" -> "QR"
-        "Lost Item" -> "FIND"
         "My Profile" -> "USER"
         else -> "TB"
     }

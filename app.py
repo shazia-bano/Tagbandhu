@@ -155,6 +155,281 @@ def login_required(view):
     return wrapped_view
 
 
+# Android registration API
+@app.route("/api/register", methods=["POST"])
+@csrf.exempt
+def api_register():
+    data = request.get_json(silent=True) or {}
+
+    name = str(data.get("name", "")).strip()
+    phone = str(data.get("phone", "")).strip()
+    email = str(data.get("email", "")).strip().lower()
+    password = data.get("password", "")
+    consent = data.get("consent", False)
+
+    if not name or not phone or not email or not isinstance(password, str):
+        return jsonify({
+            "success": False,
+            "message": "All fields are required."
+        }), 400
+
+    if not re.fullmatch(r"[A-Za-z]+(?:[ '-][A-Za-z]+)*", name):
+        return jsonify({
+            "success": False,
+            "message": "Please enter a valid name."
+        }), 400
+
+    if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
+        return jsonify({
+            "success": False,
+            "message": "Please enter a valid email address."
+        }), 400
+
+    if len(password) < 8 or len(password) > 128:
+        return jsonify({
+            "success": False,
+            "message": "Password must be 8 to 128 characters."
+        }), 400
+
+    if not (
+        re.search(r"[A-Z]", password)
+        and re.search(r"[a-z]", password)
+        and re.search(r"\d", password)
+        and re.search(r"[^A-Za-z0-9]", password)
+    ):
+        return jsonify({
+            "success": False,
+            "message": (
+                "Password must contain uppercase, lowercase, "
+                "a number and a special character."
+            )
+        }), 400
+
+    if consent is not True:
+        return jsonify({
+            "success": False,
+            "message": "Please accept the Terms and Privacy Policy."
+        }), 400
+
+    existing_user = db.session.scalar(
+        db.select(User).filter_by(email=email)
+    )
+
+    if existing_user:
+        return jsonify({
+            "success": False,
+            "message": (
+                "An account with this email already exists. "
+                "If it is unverified, request a new OTP."
+            )
+        }), 409
+
+    otp = str(secrets.randbelow(900000) + 100000)
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+
+    user = User(
+        name=name,
+        phone=phone,
+        email=email,
+        password_hash=generate_password_hash(password),
+        email_verified=False,
+        email_otp_hash=generate_password_hash(otp),
+        email_otp_expires_at=now + timedelta(minutes=5),
+        email_otp_attempts=0,
+        email_otp_last_sent_at=now,
+    )
+
+    try:
+        db.session.add(user)
+
+        msg = Message(
+            subject="Verify your Tagbandhu email",
+            recipients=[email],
+            body=(
+                f"Hello {name},\n\n"
+                f"Your Tagbandhu verification code is: {otp}\n\n"
+                "This code expires in 5 minutes. "
+                "Do not share it with anyone."
+            ),
+        )
+
+        mail.send(msg)
+        db.session.commit()
+
+        return jsonify({
+            "success": True,
+            "message": "Registration successful. Check your email for the OTP."
+        }), 201
+
+    except Exception:
+        db.session.rollback()
+        app.logger.exception("Android registration failed.")
+        return jsonify({
+            "success": False,
+            "message": "Registration failed. Please try again."
+        }), 500
+
+
+# Android email OTP verification API
+@app.route("/api/verify-email", methods=["POST"])
+@csrf.exempt
+def api_verify_email():
+    data = request.get_json(silent=True) or {}
+
+    email = str(data.get("email", "")).strip().lower()
+    otp = str(data.get("otp", "")).strip()
+
+    if not email or not re.fullmatch(r"\d{6}", otp):
+        return jsonify({
+            "success": False,
+            "message": "Enter a valid email and 6-digit OTP."
+        }), 400
+
+    user = db.session.scalar(
+        db.select(User).filter_by(email=email)
+    )
+
+    if not user:
+        return jsonify({
+            "success": False,
+            "message": "Account not found. Please register first."
+        }), 404
+
+    if user.email_verified:
+        return jsonify({
+            "success": True,
+            "message": "Email is already verified."
+        }), 200
+
+    if (
+        not user.email_otp_hash
+        or not user.email_otp_expires_at
+    ):
+        return jsonify({
+            "success": False,
+            "message": "OTP unavailable. Please request a new OTP."
+        }), 400
+
+    if user.email_otp_attempts >= 5:
+        return jsonify({
+            "success": False,
+            "message": "Too many attempts. Please request a new OTP."
+        }), 429
+
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+
+    if now >= user.email_otp_expires_at:
+        return jsonify({
+            "success": False,
+            "message": "OTP expired. Please request a new OTP."
+        }), 400
+
+    if not check_password_hash(user.email_otp_hash, otp):
+        user.email_otp_attempts += 1
+        db.session.commit()
+
+        return jsonify({
+            "success": False,
+            "message": "Incorrect OTP."
+        }), 400
+
+    user.email_verified = True
+    user.email_otp_hash = None
+    user.email_otp_expires_at = None
+    user.email_otp_attempts = 0
+
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        app.logger.exception("Android email verification failed.")
+
+        return jsonify({
+            "success": False,
+            "message": "Verification failed. Please try again."
+        }), 500
+
+    return jsonify({
+        "success": True,
+        "message": "Email verified successfully. You can now log in."
+    }), 200
+
+
+# Android resend OTP API
+@app.route("/api/resend-verification", methods=["POST"])
+@csrf.exempt
+def api_resend_verification():
+    data = request.get_json(silent=True) or {}
+    email = str(data.get("email", "")).strip().lower()
+
+    if not email:
+        return jsonify({
+            "success": False,
+            "message": "Email is required."
+        }), 400
+
+    user = db.session.scalar(
+        db.select(User).filter_by(email=email)
+    )
+
+    if not user:
+        return jsonify({
+            "success": False,
+            "message": "Account not found. Please register first."
+        }), 404
+
+    if user.email_verified:
+        return jsonify({
+            "success": False,
+            "message": "This email is already verified."
+        }), 400
+
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    last_sent = user.email_otp_last_sent_at
+
+    if last_sent and (now - last_sent).total_seconds() < 60:
+        return jsonify({
+            "success": False,
+            "message": "Please wait 60 seconds before requesting another OTP."
+        }), 429
+
+    otp = str(secrets.randbelow(900000) + 100000)
+
+    msg = Message(
+        subject="Your new Tagbandhu verification code",
+        recipients=[email],
+        body=(
+            f"Hello {user.name},\n\n"
+            f"Your new Tagbandhu verification code is: {otp}\n\n"
+            "This code expires in 5 minutes. "
+            "Do not share it with anyone."
+        ),
+    )
+
+    try:
+        mail.send(msg)
+
+        user.email_otp_hash = generate_password_hash(otp)
+        user.email_otp_expires_at = now + timedelta(minutes=5)
+        user.email_otp_attempts = 0
+        user.email_otp_last_sent_at = now
+
+        db.session.commit()
+
+        return jsonify({
+            "success": True,
+            "message": "A new verification code has been sent."
+        }), 200
+
+    except Exception:
+        db.session.rollback()
+        app.logger.exception("Android OTP resend failed.")
+
+        return jsonify({
+            "success": False,
+            "message": "Could not send OTP. Please try again."
+        }), 500
+
 @app.route("/test-email")
 @login_required
 def test_email():
