@@ -6,10 +6,14 @@
 
 <section class="auth-section">
     <div class="auth-card">
-        <a href="/" class="auth-logo">Tag<span>bandhu</span></a>
+        <a href="{{ url_for('home') }}" class="auth-logo">
+            Tag<span>bandhu</span>
+        </a>
 
         <p class="eyebrow">JOIN TAGBANDHU</p>
+
         <h1>Create your account</h1>
+
         <p class="auth-description">
             Manage your elderly, children’s and luggage tags.
         </p>
@@ -19,23 +23,24 @@
 
             <label for="name">Full name</label>
             <input type="text" id="name" name="name" placeholder="Enter your full name" maxlength="100" minlength="2"
-                autocomplete="name" pattern=".*\S.*" title="Please enter your full name." required>
+                autocomplete="name" pattern="[A-Za-z]+([ '-][A-Za-z]+)*" title="Please enter a valid name." required>
 
             <label for="phone">Mobile number</label>
             <input type="tel" id="phone" name="phone" placeholder="10-digit Indian mobile number" inputmode="numeric"
-                pattern="[6-9][0-9]{9}" minlength="10" maxlength="10" autocomplete="tel-national"
-                title="Enter a valid 10-digit Indian mobile number starting with 6, 7, 8 or 9." required>
+                pattern="[6-9][0-9]{9}" maxlength="10" autocomplete="tel-national"
+                title="Enter a valid 10-digit Indian mobile number." required>
 
             <label for="email">Email address</label>
             <input type="email" id="email" name="email" placeholder="you@example.com" maxlength="120"
-                autocomplete="email" title="Enter a valid email address, such as you@example.com." required>
-
+                autocomplete="email" required>
 
             <label for="password">Create password</label>
 
             <div class="password-wrapper">
                 <input type="password" id="password" name="password" placeholder="At least 8 characters" minlength="8"
-                    maxlength="128" autocomplete="new-password" aria-describedby="password-hint" required>
+                    maxlength="128" autocomplete="new-password" aria-describedby="password-hint password-rules"
+                    pattern="(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9])(?=.*[^A-Za-z0-9]).{8,128}"
+                    title="Use at least 8 characters with uppercase, lowercase, number and special character." required>
 
                 <button type="button" class="toggle-password" id="togglePassword" aria-label="Show password"
                     aria-pressed="false">
@@ -48,29 +53,36 @@
             </div>
 
             <p id="password-hint" class="auth-description">
-                Use at least 8 characters. Avoid using a password you use elsewhere.
+                Use a strong password to help protect your account.
             </p>
 
-            <script>
-                const passwordInput = document.getElementById("password");
-                const togglePassword = document.getElementById("togglePassword");
+            <div id="password-rules" class="password-rules-hidden" aria-live="polite">
+                <p class="password-rule" id="rule-length">
+                    Not met — At least 8 characters
+                </p>
 
-                togglePassword.addEventListener("click", function () {
-                    const isHidden = passwordInput.type === "password";
+                <p class="password-rule" id="rule-upper">
+                    Not met — One uppercase letter (A–Z)
+                </p>
 
-                    passwordInput.type = isHidden ? "text" : "password";
-                    togglePassword.innerHTML = isHidden
-                        ? `<svg class="eye-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l18 18"/><path d="M10.6 10.6a2 2 0 002.8 2.8"/><path d="M9.9 5.2A10.8 10.8 0 0112 5c6.4 0 10 7 10 7a15.8 15.8 0 01-3.1 3.9"/><path d="M6.2 6.2C3.5 8 2 12 2 12s3.6 7 10 7c1.2 0 2.3-.3 3.3-.7"/></svg>`
-                        : `<svg class="eye-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>`;
-                    togglePassword.setAttribute("aria-label", isHidden ? "Hide password" : "Show password");
-                    togglePassword.setAttribute("aria-pressed", String(isHidden));
-                });
-            </script>
+                <p class="password-rule" id="rule-lower">
+                    Not met — One lowercase letter (a–z)
+                </p>
 
+                <p class="password-rule" id="rule-number">
+                    Not met — One number (0–9)
+                </p>
+
+                <p class="password-rule" id="rule-special">
+                    Not met — One special character (@, #, !, etc.)
+                </p>
+            </div>
 
             <label class="consent-label">
                 <input type="checkbox" name="consent" required>
-                I agree to the terms and privacy policy.
+                <span>
+                    I agree to the terms and privacy policy.
+                </span>
             </label>
 
             <button type="submit" class="auth-button">
@@ -83,8 +95,197 @@
             <a href="{{ url_for('login') }}">Login</a>
         </p>
 
-        <a href="{{ url_for('home') }}" class="back-link">← Back to home</a>
+        <a href="{{ url_for('home') }}" class="back-link">
+            ← Back to home
+        </a>
     </div>
 </section>
+
+<style>
+    #password-rules {
+        display: none !important;
+    }
+
+    #password-rules.show-rules {
+        display: block !important;
+    }
+
+    .password-rule.is-valid {
+        color: #16803c;
+    }
+</style>
+
+<script>
+    (function () {
+        const passwordInput = document.getElementById("password");
+        const togglePassword = document.getElementById("togglePassword");
+        const rulesBox = document.getElementById("password-rules");
+
+        if (!passwordInput || !togglePassword || !rulesBox) return;
+
+        const rules = {
+            length: {
+                element: document.getElementById("rule-length"),
+                valid: password => password.length >= 8,
+                text: "At least 8 characters"
+            },
+            upper: {
+                element: document.getElementById("rule-upper"),
+                valid: password => /[A-Z]/.test(password),
+                text: "One uppercase letter (A–Z)"
+            },
+            lower: {
+                element: document.getElementById("rule-lower"),
+                valid: password => /[a-z]/.test(password),
+                text: "One lowercase letter (a–z)"
+            },
+            number: {
+                element: document.getElementById("rule-number"),
+                valid: password => /[0-9]/.test(password),
+                text: "One number (0–9)"
+            },
+            special: {
+                element: document.getElementById("rule-special"),
+                valid: password => /[^A-Za-z0-9]/.test(password),
+                text: "One special character (@, #, !, etc.)"
+            }
+        };
+
+        function updatePasswordRules() {
+            const password = passwordInput.value;
+
+            Object.values(rules).forEach(rule => {
+                const valid = rule.valid(password);
+
+                rule.element.textContent =
+                    (valid ? "✓ Met — " : "Not met — ") + rule.text;
+
+                rule.element.classList.toggle("is-valid", valid);
+            });
+        }
+
+        function allRulesValid() {
+            return Object.values(rules).every(rule =>
+                rule.valid(passwordInput.value)
+            );
+        }
+
+        passwordInput.addEventListener("focus", function () {
+            rulesBox.classList.add("show-rules");
+        });
+
+        passwordInput.addEventListener("input", function () {
+            updatePasswordRules();
+
+            if (allRulesValid()) {
+                rulesBox.classList.remove("show-rules");
+            } else {
+                rulesBox.classList.add("show-rules");
+            }
+        });
+
+        passwordInput.addEventListener("blur", function () {
+            if (allRulesValid()) {
+                rulesBox.classList.remove("show-rules");
+            }
+        });
+
+        function eyeIcon(hidden) {
+            if (hidden) {
+                return `
+                <svg class="eye-icon" viewBox="0 0 24 24"
+                    fill="none" stroke="currentColor" stroke-width="1.8"
+                    stroke-linecap="round" stroke-linejoin="round"
+                    aria-hidden="true">
+                    <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7z"/>
+                    <circle cx="12" cy="12" r="3"/>
+                </svg>`;
+            }
+
+            return `
+            <svg class="eye-icon" viewBox="0 0 24 24"
+                fill="none" stroke="currentColor" stroke-width="1.8"
+                stroke-linecap="round" stroke-linejoin="round"
+                aria-hidden="true">
+                <path d="M3 3l18 18"/>
+                <path d="M10.6 10.6a2 2 0 002.8 2.8"/>
+                <path d="M9.9 5.2A10.8 10.8 0 0112 5c6.4 0 10 7 10 7a15.8 15.8 0 01-3.1 3.9"/>
+                <path d="M6.2 6.2C3.5 8 2 12 2 12s3.6 7 10 7c1.2 0 2.3-.3 3.3-.7"/>
+            </svg>`;
+        }
+
+        togglePassword.addEventListener("click", function () {
+            const isHidden = passwordInput.type === "password";
+
+            passwordInput.type = isHidden ? "text" : "password";
+            togglePassword.innerHTML = eyeIcon(!isHidden);
+
+            togglePassword.setAttribute(
+                "aria-label",
+                isHidden ? "Hide password" : "Show password"
+            );
+
+            togglePassword.setAttribute(
+                "aria-pressed",
+                String(isHidden)
+            );
+        });
+
+        const registerForm = document.querySelector(
+            'form[action="{{ url_for("register") }}"]'
+        );
+
+        const emailInput = document.getElementById("email");
+
+        if (registerForm && emailInput) {
+            registerForm.addEventListener("submit", function (event) {
+                const email = emailInput.value.trim();
+                const commonMistakes = {
+                    "gamil.com": "gmail.com",
+                    "gmial.com": "gmail.com",
+                    "gmal.com": "gmail.com",
+                    "mal.com": "gmail.com",
+                    "gail.com": "gmail.com",
+                    "gmai.com": "gmail.com",
+                    "gmaill.com": "gmail.com",
+                    "gmail.con": "gmail.com",
+                    "yaho.com": "yahoo.com",
+                    "yahooo.com": "yahoo.com",
+                    "outlok.com": "outlook.com",
+                    "hotnail.com": "hotmail.com"
+                };
+
+                const parts = email.split("@");
+
+                if (parts.length !== 2) return;
+
+                const domain = parts[1].toLowerCase();
+                const correction = commonMistakes[domain];
+
+                if (!correction) return;
+
+                event.preventDefault();
+
+                const suggestedEmail = parts[0] + "@" + correction;
+
+                const useCorrection = window.confirm(
+                    "Please check your email address.\n\n" +
+                    "Did you mean " + suggestedEmail + "?\n\n" +
+                    "OK = Use corrected email\n" +
+                    "Cancel = Keep my email and review it"
+                );
+
+                if (useCorrection) {
+                    emailInput.value = suggestedEmail;
+                    registerForm.requestSubmit();
+                } else {
+                    emailInput.focus();
+                }
+            });
+        }
+
+        updatePasswordRules();
+    })();
+</script>
 
 {% endblock %}

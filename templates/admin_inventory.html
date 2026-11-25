@@ -25,6 +25,11 @@
             <strong>{{ activated_tags }}</strong>
             <span class="inventory-summary-note">Assigned to owners</span>
         </div>
+        <div class="inventory-summary-card">
+            <span class="inventory-summary-label">Registered Users</span>
+            <strong>{{ total_users }}</strong>
+            <span class="inventory-summary-note">Total user accounts</span>
+        </div>
     </section>
 
 
@@ -61,7 +66,95 @@
         </a>
     </div>
 
+    <section class="inventory-list">
+        <h2>Registered Users</h2>
+        <p>View users registered on Tagbandhu.</p>
+        <div class="inventory-controls">
+            <input type="search" id="user-search" placeholder="Search by name, email or phone..."
+                aria-label="Search registered users">
+        </div>
 
+        {% if users %}
+        <div class="inventory-table-wrapper">
+            <table class="inventory-table">
+                <table class="inventory-table" id="users-table">
+                    <thead>
+                        <tr>
+                            <th>User ID</th>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Phone</th>
+                            <th>Total Tags</th>
+                            <th>Active Tags</th>
+                            <th>Account Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for user in users %}
+                        <tr>
+                            <td>#{{ user.id }}</td>
+
+                            <td>
+                                <a href="{{ url_for('admin_user_details', user_id=user.id) }}">
+                                    {{ user.name }}
+                                </a>
+                            </td>
+
+                            <td>{{ user.email }}</td>
+                            <td>{{ user.phone or "Not provided" }}</td>
+                            <td>{{ user.tags|length }}</td>
+
+                            <td>
+                                {{ user.tags|selectattr("is_active")|list|length }}
+                            </td>
+
+                            <!-- Account Status -->
+                            <td>
+                                {% if user.is_active %}
+                                <span class="status active">Active</span>
+                                {% else %}
+                                <span class="status inactive">Deactivated</span>
+                                {% endif %}
+                            </td>
+
+                            <!-- Action -->
+                            <td>
+                                {% if user.is_active %}
+                                <form method="POST" action="{{ url_for('admin_deactivate_user', user_id=user.id) }}"
+                                    onsubmit="return confirm('Are you sure you want to deactivate this user?');">
+
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                                    <button type="submit" class="btn btn-danger">
+                                        Deactivate
+                                    </button>
+                                </form>
+                                {% else %}
+                                <form method="POST" action="{{ url_for('admin_reactivate_user', user_id=user.id) }}"
+                                    onsubmit="return confirm('Are you sure you want to reactivate this user?');">
+
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                                    <button type="submit" class="btn btn-success">
+                                        Reactivate
+                                    </button>
+                                </form>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+        </div>
+        {% else %}
+        <div class="inventory-empty">
+            <h3>No registered users yet</h3>
+            <p>New user accounts will appear here.</p>
+        </div>
+        {% endif %}
+    </section>
     <section class="inventory-list">
         <h2>Generated Tags</h2>
         <p>Track all generated QR tags and their current status.</p>
@@ -172,35 +265,51 @@
 
 <script>
     document.addEventListener("DOMContentLoaded", function () {
+        // Existing inventory search and filter
         const search = document.getElementById("inventory-search");
         const filter = document.getElementById("inventory-status-filter");
         const rows = document.querySelectorAll(".inventory-table tbody tr");
 
-        if (!search || !filter) return;
+        if (search && filter) {
+            function filterInventory() {
+                const query = search.value.trim().toLowerCase();
+                const selectedStatus = filter.value;
 
-        function filterInventory() {
-            const query = search.value.trim().toLowerCase();
-            const selectedStatus = filter.value;
+                rows.forEach(function (row) {
+                    const text = row.textContent.toLowerCase();
+                    const status = row.querySelector(".inventory-status");
+                    const statusText = status ? status.textContent.trim().toLowerCase() : "";
 
-            rows.forEach(function (row) {
-                const text = row.textContent.toLowerCase();
-                const status = row.querySelector(".inventory-status");
-                const statusText = status ? status.textContent.trim().toLowerCase() : "";
+                    const matchesSearch = text.includes(query);
+                    const matchesStatus =
+                        selectedStatus === "all" ||
+                        (selectedStatus === "available" && statusText === "available") ||
+                        (selectedStatus === "activated" && statusText === "activated") ||
+                        (selectedStatus === "deactivated" && statusText === "deactivated") ||
+                        (selectedStatus === "review" && statusText === "needs review");
 
-                const matchesSearch = text.includes(query);
-                const matchesStatus =
-                    selectedStatus === "all" ||
-                    (selectedStatus === "available" && statusText === "available") ||
-                    (selectedStatus === "activated" && statusText === "activated") ||
-                    (selectedStatus === "deactivated" && statusText === "deactivated") ||
-                    (selectedStatus === "review" && statusText === "needs review");
+                    row.hidden = !(matchesSearch && matchesStatus);
+                });
+            }
 
-                row.hidden = !(matchesSearch && matchesStatus);
-            });
+            search.addEventListener("input", filterInventory);
+            filter.addEventListener("change", filterInventory);
         }
 
-        search.addEventListener("input", filterInventory);
-        filter.addEventListener("change", filterInventory);
+        // Registered users search
+        const userSearch = document.getElementById("user-search");
+        const userRows = document.querySelectorAll("#users-table tbody tr");
+
+        if (userSearch) {
+            userSearch.addEventListener("input", function () {
+                const query = userSearch.value.trim().toLowerCase();
+
+                userRows.forEach(function (row) {
+                    const text = row.textContent.toLowerCase();
+                    row.hidden = !text.includes(query);
+                });
+            });
+        }
     });
 </script>
 

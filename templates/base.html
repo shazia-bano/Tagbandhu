@@ -6,6 +6,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Tagbandhu{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+    <meta name="theme-color" content="#102a43">
+    <script>
+        (function () {
+            const savedTheme = localStorage.getItem("tagbandhu-theme");
+            if (savedTheme === "dark") {
+                document.documentElement.setAttribute("data-theme", "dark");
+            }
+        })();
+    </script>
+
 </head>
 
 <body>
@@ -24,7 +35,11 @@
                 onclick="event.preventDefault(); document.getElementById('navbar-logout-form').submit();">
                 Logout
             </a>
-            <form id="navbar-logout-form" action="{{ url_for('logout') }}" method="POST" hidden></form>
+
+            <form id="navbar-logout-form" action="{{ url_for('logout') }}" method="POST" hidden>
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            </form>
+
             {% else %}
             <a href="{{ url_for('login') }}">Login</a>
             <a href="{{ url_for('register') }}" class="nav-button">Get Started</a>
@@ -52,6 +67,54 @@
         <p>Connecting people with their loved ones and helping lost belongings find their way home through simple and
             smart QR tags.</p>
     </footer>
+
+    <button id="theme-toggle" type="button" aria-label="Toggle light and dark mode" style="position:fixed;bottom:20px;right:20px;z-index:9999;
+               width:52px;height:52px;border:0;border-radius:50%;
+               background:#087f8c;color:white;font-size:24px;
+               cursor:pointer;box-shadow:0 4px 12px #0003;">
+        🌙
+    </button>
+
+    <script>
+        (function () {
+            const button = document.getElementById("theme-toggle");
+            const root = document.documentElement;
+
+            function updateButton() {
+                const dark = root.getAttribute("data-theme") === "dark";
+                button.textContent = dark ? "☀️" : "🌙";
+                button.title = dark ? "Switch to Light Mode" : "Switch to Dark Mode";
+            }
+
+            button.addEventListener("click", function () {
+                const dark = root.getAttribute("data-theme") === "dark";
+
+                if (dark) {
+                    root.removeAttribute("data-theme");
+                    localStorage.setItem("tagbandhu-theme", "light");
+                } else {
+                    root.setAttribute("data-theme", "dark");
+                    localStorage.setItem("tagbandhu-theme", "dark");
+                }
+
+                updateButton();
+            });
+
+            updateButton();
+        })();
+    </script>
+
+    <script>
+        if ("serviceWorker" in navigator) {
+            window.addEventListener("load", function () {
+                navigator.serviceWorker.register(
+                    "{{ url_for('static', filename='service-worker.js') }}"
+                ).catch(function (error) {
+                    console.error("Service worker registration failed:", error);
+                });
+            });
+        }
+    </script>
 
 </body>
 

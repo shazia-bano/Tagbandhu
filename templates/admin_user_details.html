@@ -1,0 +1,147 @@
+
+{% extends "base.html" %}
+
+{% block content %}
+<div class="admin-user-page">
+
+    <a href="{{ url_for('admin_inventory') }}" class="back-link">
+        ← Back to User Management
+    </a>
+
+    <div class="admin-user-header">
+        <div>
+            <h1>User Details</h1>
+            <p>View account information, registered tags and activity.</p>
+        </div>
+
+        {% if user.is_active %}
+            <span class="status active">Active Account</span>
+        {% else %}
+            <span class="status inactive">Deactivated Account</span>
+        {% endif %}
+    </div>
+
+    <!-- Personal Information -->
+    <section class="admin-detail-card">
+        <div class="admin-section-heading">
+            <h2>Personal Information</h2>
+            <span class="admin-count">User #{{ user.id }}</span>
+        </div>
+
+        <div class="user-info-grid">
+            <div class="user-info-item">
+                <span>Full Name</span>
+                <strong>{{ user.name }}</strong>
+            </div>
+
+            <div class="user-info-item">
+                <span>Email Address</span>
+                <strong>{{ user.email }}</strong>
+            </div>
+
+            <div class="user-info-item">
+                <span>Phone Number</span>
+                <strong>{{ user.phone or "Not provided" }}</strong>
+            </div>
+
+            <div class="user-info-item">
+                <span>Account Status</span>
+                <strong>{{ "Active" if user.is_active else "Deactivated" }}</strong>
+            </div>
+        </div>
+    </section>
+
+    <!-- Registered Tags -->
+    <section class="admin-detail-card">
+        <div class="admin-section-heading">
+            <h2>Registered Tags</h2>
+            <span class="admin-count">{{ tags|length }} Total</span>
+        </div>
+
+        {% if tags %}
+        <div class="inventory-table-wrapper">
+            <table class="inventory-table">
+                <thead>
+                    <tr>
+                        <th>Tag ID</th>
+                        <th>Product Type</th>
+                        <th>Status</th>
+                        <th>Created</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for tag in tags %}
+                    <tr>
+                        <td>#{{ tag.id }}</td>
+                        <td>{{ tag.tag_type|title }}</td>
+                        <td>
+                            {% if tag.is_active %}
+                                <span class="inventory-status status-active">Active</span>
+                            {% else %}
+                                <span class="inventory-status status-inactive">Inactive</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {{ tag.created_at.strftime("%d %b %Y") if tag.created_at else "—" }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="inventory-empty">
+            <h3>No tags found</h3>
+            <p>This user has not activated any tags.</p>
+        </div>
+        {% endif %}
+    </section>
+
+    <!-- Activity History -->
+    <section class="admin-detail-card">
+        <div class="admin-section-heading">
+            <h2>Activity History</h2>
+            <span class="admin-count">{{ activities|length }} Records</span>
+        </div>
+
+        <p class="admin-section-description">
+            Recent actions performed on this user's tags.
+        </p>
+
+        {% if activities %}
+        <div class="inventory-table-wrapper">
+            <table class="inventory-table">
+                <thead>
+                    <tr>
+                        <th>Tag ID</th>
+                        <th>Action</th>
+                        <th>Details</th>
+                        <th>Date &amp; Time</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for activity in activities %}
+                    <tr>
+                        <td>#{{ activity.tag_id }}</td>
+                        <td>{{ activity.action|title }}</td>
+                        <td>{{ activity.details or "—" }}</td>
+                        <td>
+                            {{ activity.created_at.strftime("%d %b %Y, %I:%M %p") if activity.created_at else "—" }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="inventory-empty">
+            <h3>No activity recorded yet</h3>
+            <p>Tag-related activities will appear here.</p>
+        </div>
+        {% endif %}
+    </section>
+
+</div>
+{% endblock %}

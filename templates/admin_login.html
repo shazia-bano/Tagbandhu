@@ -2,25 +2,42 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="container" style="max-width: 450px; margin: 50px auto;">
-    <h1>Admin Login</h1>
-    <p>Sign in to manage Tagbandhu inventory.</p>
+<div class="admin-login-page">
+    <div class="admin-login-card">
 
-    <form method="POST" action="{{ url_for('admin_login') }}">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <div style="margin-bottom: 20px;">
-            <label for="admin_key">Admin Key</label>
-            <input
-                type="password"
-                id="admin_key"
-                name="admin_key"
-                required
-                autocomplete="current-password"
-                style="display: block; width: 100%; padding: 10px; margin-top: 6px;"
-            >
+        <div class="admin-login-icon">
+            <span>✦</span>
         </div>
 
-        <button type="submit">Sign In</button>
-    </form>
+        <h1>Admin Login</h1>
+        <p class="admin-login-subtitle">
+            Sign in to manage Tagbandhu inventory.
+        </p>
+
+        <form method="POST" action="{{ url_for('admin_login') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+            <div class="admin-login-field">
+                <label for="admin_key">Admin Key</label>
+                <input
+                    type="password"
+                    id="admin_key"
+                    name="admin_key"
+                    placeholder="Enter your admin key"
+                    required
+                    autocomplete="current-password"
+                >
+            </div>
+
+            <button type="submit" class="admin-login-button">
+                Sign In <span>→</span>
+            </button>
+        </form>
+
+        <div class="admin-login-footer">
+            <span>🔒</span> Secure administrator access
+        </div>
+
+    </div>
 </div>
 {% endblock %}

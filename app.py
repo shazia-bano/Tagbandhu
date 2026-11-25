@@ -11,11 +11,14 @@ from flask import (
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from functools import wraps
+from flask import g
 import os
 import secrets
+from werkzeug.security import generate_password_hash, check_password_hash
 import time
 import qrcode
 from zoneinfo import ZoneInfo
+from itsdangerous import URLSafeTimedSerializer, BadSignature
 import uuid
 import io
 import re
@@ -67,6 +70,13 @@ class User(db.Model):
     phone = db.Column(db.String(20), nullable=True)
     password_hash = db.Column(db.String(256), nullable=False)
 
+    is_active = db.Column(db.Boolean, default=True, nullable=False)
+    email_verified = db.Column(db.Boolean, default=False, nullable=False)
+    email_otp_hash = db.Column(db.String(256), nullable=True)
+    email_otp_expires_at = db.Column(db.DateTime, nullable=True)
+    email_otp_attempts = db.Column(db.Integer, default=0, nullable=False)
+    email_otp_last_sent_at = db.Column(db.DateTime, nullable=True)
+
 
 class Tag(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -110,32 +120,36 @@ class ContactMessage(db.Model):
 class TagActivity(db.Model):
     id = db.Column(db.Integer, primary_key=True)
 
-    tag_id = db.Column(
-        db.Integer,
-        db.ForeignKey("tag.id"),
-        nullable=False
-    )
+    tag_id = db.Column(db.Integer, db.ForeignKey("tag.id"), nullable=False)
 
     action = db.Column(db.String(30), nullable=False)
     details = db.Column(db.String(255), nullable=True, default="")
 
     created_at = db.Column(
-    db.DateTime,
-    nullable=False,
-    default=lambda: datetime.now(ZoneInfo("Asia/Kolkata"))
-)
-
-    tag = db.relationship(
-        "Tag",
-        backref=db.backref("activity_history", lazy=True)
+        db.DateTime,
+        nullable=False,
+        default=lambda: datetime.now(ZoneInfo("Asia/Kolkata")),
     )
+
+    tag = db.relationship("Tag", backref=db.backref("activity_history", lazy=True))
+
 
 def login_required(view):
     @wraps(view)
     def wrapped_view(*args, **kwargs):
-        if "user_id" not in session:
+        user_id = session.get("user_id")
+
+        if not user_id:
             flash("Please log in to access your dashboard.")
             return redirect(url_for("login"))
+
+        user = db.session.get(User, user_id)
+
+        if user is None or not user.is_active:
+            session.clear()
+            flash("Your account is inactive or unavailable. Please contact support.")
+            return redirect(url_for("login"))
+
         return view(*args, **kwargs)
 
     return wrapped_view
@@ -199,6 +213,174 @@ def admin_logout():
     return redirect(url_for("admin_login"))
 
 
+@app.route("/api/health", methods=["GET"])
+def api_health():
+    return jsonify({"success": True, "message": "Tagbandhu API is running"})
+
+
+# -------------------- ANDROID API: LOGIN & MY TAGS --------------------
+
+api_token_serializer = URLSafeTimedSerializer(
+    app.config["SECRET_KEY"],
+    salt="tagbandhu-android-api",
+)
+
+
+@app.route("/api/login", methods=["POST"])
+@csrf.exempt
+def api_login():
+    data = request.get_json(silent=True) or {}
+
+    email = str(data.get("email", "")).strip().lower()
+    password = data.get("password", "")
+
+    if not isinstance(password, str) or not email or not password:
+        return (
+            jsonify({"success": False, "message": "Email and password are required."}),
+            400,
+        )
+
+    user = db.session.scalar(db.select(User).filter_by(email=email))
+
+    if not user or not check_password_hash(user.password_hash, password):
+        return jsonify({"success": False, "message": "Invalid email or password."}), 401
+    
+    if not user.email_verified:
+        return jsonify({
+            "success": False,
+            "message": "Please verify your email before logging in.",
+            "email_verification_required": True,
+        }), 403
+    
+    if not user.is_active:
+        return jsonify({"success": False, "message": "Your account is inactive."}), 403
+
+    token = api_token_serializer.dumps({"user_id": user.id})
+
+    return jsonify(
+        {
+            "success": True,
+            "message": "Login successful.",
+            "token": token,
+            "user": {
+                "id": user.id,
+                "name": user.name,
+                "email": user.email,
+                "phone": user.phone or "",
+            },
+        }
+    )
+
+
+@app.route("/api/my-tags", methods=["GET"])
+def api_my_tags():
+    auth_header = request.headers.get("Authorization", "")
+    parts = auth_header.split(" ", 1)
+
+    if len(parts) != 2 or parts[0].lower() != "bearer":
+        return (
+            jsonify({"success": False, "message": "Authentication token required."}),
+            401,
+        )
+
+    token = parts[1].strip()
+
+    try:
+        payload = api_token_serializer.loads(token, max_age=604800)
+    except BadSignature:
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "message": "Invalid or expired token. Please log in again.",
+                }
+            ),
+            401,
+        )
+
+    user = db.session.get(User, payload.get("user_id"))
+
+    if user is None or not user.is_active:
+        return (
+            jsonify({"success": False, "message": "Account inactive or unavailable."}),
+            401,
+        )
+
+    tags = db.session.scalars(
+        db.select(Tag).filter_by(owner_id=user.id).order_by(Tag.id.desc())
+    ).all()
+
+    return jsonify(
+        {
+            "success": True,
+            "tags": [
+                {
+                    "id": tag.id,
+                    "tag_code": tag.tag_code,
+                    "tag_type": tag.tag_type,
+                    "is_active": tag.is_active,
+                    "activated_at": (
+                        tag.activated_at.isoformat() if tag.activated_at else None
+                    ),
+                }
+                for tag in tags
+            ],
+        }
+    )
+
+
+@app.route("/api/profile", methods=["GET", "PUT"])
+@csrf.exempt
+def api_profile():
+    from flask import jsonify, request
+
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header.startswith("Bearer "):
+        return jsonify({"success": False, "message": "Authentication required"}), 401
+
+    token = auth_header.split(" ", 1)[1]
+
+    try:
+        payload = api_token_serializer.loads(token, max_age=604800)
+    except BadSignature:
+        return jsonify({"success": False, "message": "Invalid or expired token"}), 401
+    except Exception:
+        return jsonify({"success": False, "message": "Invalid or expired token"}), 401
+
+    user = db.session.get(User, payload.get("user_id"))
+
+    if not user or not user.is_active:
+        return jsonify({"success": False, "message": "User not found or inactive"}), 401
+
+    if request.method == "PUT":
+        data = request.get_json(silent=True) or {}
+
+        name = str(data.get("name", "")).strip()
+        phone = str(data.get("phone", "")).strip()
+
+        if not name:
+            return jsonify({"success": False, "message": "Name is required"}), 400
+
+        user.name = name
+        user.phone = phone
+
+        try:
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+            return jsonify({"success": False, "message": "Could not update profile"}), 500
+
+    return jsonify({
+        "success": True,
+        "user": {
+            "id": user.id,
+            "name": user.name or "",
+            "email": user.email or "",
+            "phone": user.phone or ""
+        }
+    }), 200
+
+
 @app.route("/")
 def home():
     return render_template("home.html")
@@ -226,25 +408,15 @@ def tag_qr(tag_code):
     if not tag:
         abort(404, description="Tag not found or inactive.")
 
+    base_url = os.environ.get("BASE_URL", "http://10.135.243.87:5000").rstrip("/")
 
-    base_url = os.environ.get(
-        "BASE_URL",
-        "http://10.75.90.87:5000"
-    ).rstrip("/")
-
-    scan_url = base_url + url_for(
-        "scan_tag",
-        tag_code=tag_code
-    )
+    scan_url = base_url + url_for("scan_tag", tag_code=tag_code)
 
     qr = qrcode.QRCode(box_size=10, border=4)
     qr.add_data(scan_url)
     qr.make(fit=True)
 
-    qr_image = qr.make_image(
-        fill_color="black",
-        back_color="white"
-    )
+    qr_image = qr.make_image(fill_color="black", back_color="white")
 
     image_buffer = BytesIO()
     qr_image.save(image_buffer, format="PNG")
@@ -291,8 +463,10 @@ def request_otp():
         "resend_after": time.time() + 60,
     }
 
-    # Local testing only. Never expose OTPs in production logs.
-    app.logger.warning("TEST OTP for %s: %s", phone, otp)
+    # Show OTP only while running in local debug mode.
+
+    if app.debug:
+        app.logger.warning("TEST OTP for %s: %s", phone, otp)
 
     return {
         "success": True,
@@ -356,21 +530,6 @@ def send_contact_message(tag_code):
         flash("Please enter a valid 10-digit Indian mobile number.")
         return redirect(url_for("scan_tag", tag_code=tag_code))
 
-    # Require successful OTP verification
-
-    # Require OTP verification for this session and phone number
-    session_id = session.get("otp_session_id")
-    otp_key = f"{session_id}:{sender_phone}" if session_id else None
-    otp_record = otp_store.get(otp_key) if otp_key else None
-
-    if (
-        not otp_record
-        or not otp_record.get("verified")
-        or time.time() > otp_record.get("expires", 0)
-    ):
-        flash("Please verify your mobile number with OTP first.")
-        return redirect(url_for("scan_tag", tag_code=tag_code))
-
     # Check length limits
     if len(sender_name) > 100 or len(sender_email) > 120 or len(message) > 2000:
         flash("Please keep your details and message within the allowed limits.")
@@ -388,7 +547,6 @@ def send_contact_message(tag_code):
     db.session.add(contact_message)
     db.session.commit()
     # Send an email notification to the tag owner
-
 
     # Send an email notification to the tag owner
     try:
@@ -425,30 +583,26 @@ Tagbandhu
             mail.send(email)
 
     except Exception:
-        app.logger.exception(
-            "Message saved, but owner email notification failed."
-        )
-
-    otp_store.pop(otp_key, None)
+        app.logger.exception("Message saved, but owner email notification failed.")
 
     flash("Your message has been sent to the item owner.")
     return redirect(url_for("scan_tag", tag_code=tag_code))
 
+
 @app.route("/admin/inventory")
 @admin_required
-
-
 def admin_inventory():
     tags = Tag.query.order_by(Tag.id.asc()).all()
 
     total_tags = len(tags)
+    users = db.session.scalars(db.select(User).order_by(User.id.asc())).all()
+
+    total_users = len(users)
     available_tags = sum(
-        1 for tag in tags
-        if tag.owner_id is None and not tag.is_active
+        1 for tag in tags if tag.owner_id is None and not tag.is_active
     )
     activated_tags = sum(
-        1 for tag in tags
-        if tag.owner_id is not None and tag.is_active
+        1 for tag in tags if tag.owner_id is not None and tag.is_active
     )
 
     return render_template(
@@ -457,20 +611,69 @@ def admin_inventory():
         total_tags=total_tags,
         available_tags=available_tags,
         activated_tags=activated_tags,
+        users=users,
+        total_users=total_users,
     )
 
 
 @app.route("/admin/activity-history")
 @admin_required
 def admin_activity_history():
-    activities = TagActivity.query.order_by(
-        TagActivity.created_at.desc()
-    ).all()
+    activities = TagActivity.query.order_by(TagActivity.created_at.desc()).all()
+
+    return render_template("admin_activity_history.html", activities=activities)
+
+
+@app.route("/admin/users/<int:user_id>")
+@admin_required
+def admin_user_details(user_id):
+    user = db.session.get(User, user_id)
+
+    if user is None:
+        abort(404)
+
+    tags = Tag.query.filter_by(owner_id=user.id).order_by(Tag.id.asc()).all()
+
+    # Fetch activity history for this user's tags
+    tag_ids = [tag.id for tag in tags]
+
+    activities = (
+        TagActivity.query.filter(TagActivity.tag_id.in_(tag_ids))
+        .order_by(TagActivity.created_at.desc())
+        .all()
+        if tag_ids
+        else []
+    )
 
     return render_template(
-        "admin_activity_history.html",
-        activities=activities
+        "admin_user_details.html", user=user, tags=tags, activities=activities
     )
+
+
+# -------------------- ADMIN: DEACTIVATE USER --------------------
+
+
+@app.route("/admin/users/<int:user_id>/deactivate", methods=["POST"])
+@admin_required
+def admin_deactivate_user(user_id):
+    user = db.session.get(User, user_id)
+
+    if user is None:
+        abort(404)
+
+    if not user.is_active:
+        flash("This user is already deactivated.")
+        return redirect(url_for("admin_inventory"))
+
+    user.is_active = False
+    db.session.commit()
+
+    flash("User account deactivated successfully.")
+    return redirect(url_for("admin_inventory"))
+
+
+# -------------------- ADMIN: DEACTIVATE TAG --------------------
+
 
 @app.route("/admin/tag/<int:tag_id>/deactivate", methods=["POST"])
 @admin_required
@@ -490,16 +693,37 @@ def admin_deactivate_tag(tag_id):
 
     tag.is_active = False
 
-    db.session.add(TagActivity(
-        tag_id=tag.id,
-        action="deactivated",
-        details="Tag deactivated by admin",
-        created_at=datetime.now(ZoneInfo("Asia/Kolkata"))
-    ))
+    db.session.add(
+        TagActivity(
+            tag_id=tag.id,
+            action="deactivated",
+            details="Tag deactivated by admin",
+            created_at=datetime.now(ZoneInfo("Asia/Kolkata")),
+        )
+    )
 
     db.session.commit()
 
-    flash(f"Tag #{tag.id} has been deactivated.")
+    flash("Tag deactivated successfully.")
+    return redirect(url_for("admin_inventory"))
+
+
+@app.route("/admin/users/<int:user_id>/reactivate", methods=["POST"])
+@admin_required
+def admin_reactivate_user(user_id):
+    user = db.session.get(User, user_id)
+
+    if user is None:
+        abort(404)
+
+    if user.is_active:
+        flash("This user account is already active.")
+        return redirect(url_for("admin_inventory"))
+
+    user.is_active = True
+    db.session.commit()
+
+    flash("User account reactivated successfully.")
     return redirect(url_for("admin_inventory"))
 
 
@@ -521,12 +745,14 @@ def admin_reactivate_tag(tag_id):
 
     tag.is_active = True
 
-    db.session.add(TagActivity(
-        tag_id=tag.id,
-        action="reactivated",
-        details="Tag reactivated by admin",
-        created_at=datetime.now(ZoneInfo("Asia/Kolkata"))
-    ))
+    db.session.add(
+        TagActivity(
+            tag_id=tag.id,
+            action="reactivated",
+            details="Tag reactivated by admin",
+            created_at=datetime.now(ZoneInfo("Asia/Kolkata")),
+        )
+    )
 
     db.session.commit()
 
@@ -614,10 +840,7 @@ def print_inventory_tags():
     if not tags:
         return "No available inventory tags found.", 404
 
-    base_url = os.environ.get(
-    "BASE_URL",
-    "http://10.75.90.87:5000"
-).rstrip("/")
+    base_url = os.environ.get("BASE_URL", "http://10.135.243.87:5000").rstrip("/")
     output = BytesIO()
     pdf = canvas.Canvas(output, pagesize=A4)
     page_width, page_height = A4
@@ -701,6 +924,7 @@ def get_email_typo_suggestion(email):
 
     return None
 
+
 @app.route("/register", methods=["GET", "POST"])
 def register():
     if request.method == "POST":
@@ -710,49 +934,252 @@ def register():
         password = request.form.get("password", "")
         consent = request.form.get("consent")
 
+        # Validate name on the server
+        if not re.fullmatch(r"[A-Za-z]+(?:[ '-][A-Za-z]+)*", name):
+            flash(
+                "Please enter a valid name using letters only. "
+                "Spaces, hyphens and apostrophes are allowed.",
+                "error",
+            )
+            return render_template("register.html")
+
+        # Validate basic email format
+        if (
+            not email
+            or len(email) > 120
+            or not re.fullmatch(
+                r"[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@"
+                r"[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?"
+                r"(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)+",
+                email,
+            )
+        ):
+            flash("Please enter a valid email address.", "error")
+            return render_template("register.html")
+
         # Reject common email domain typos
         suggested_email = get_email_typo_suggestion(email)
 
         if suggested_email:
             flash(
                 f"Please check your email address. Did you mean {suggested_email}?",
-                "error"
+                "error",
             )
-            return redirect(url_for("register"))
+            return render_template("register.html")
 
         if not name or not phone or not email or not password:
-            flash("Please fill in all required fields.")
-            return redirect(url_for("register"))
+            flash("Please fill in all required fields.", "error")
+            return render_template("register.html")
 
-        if len(password) < 8:
-            flash("Password must be at least 8 characters long.")
-            return redirect(url_for("register"))
+        if len(password) < 8 or len(password) > 128:
+            flash("Password must be between 8 and 128 characters long.", "error")
+            return render_template("register.html")
+
+        if not re.search(r"[A-Z]", password):
+            flash("Password must contain at least one uppercase letter (A-Z).", "error")
+            return render_template("register.html")
+
+        if not re.search(r"[a-z]", password):
+            flash("Password must contain at least one lowercase letter (a-z).", "error")
+            return render_template("register.html")
+
+        if not re.search(r"[0-9]", password):
+            flash("Password must contain at least one number (0-9).", "error")
+            return render_template("register.html")
+
+        if not re.search(r"[^A-Za-z0-9]", password):
+            flash(
+                "Password must contain at least one special character, such as @ or #.",
+                "error",
+            )
+            return render_template("register.html")
 
         if not consent:
-            flash("Please agree to the terms and privacy policy.")
-            return redirect(url_for("register"))
+            flash("Please agree to the terms and privacy policy.", "error")
+            return render_template("register.html")
 
-        existing_user = db.session.scalar(db.select(User).filter_by(email=email))
+        
+        existing_user = db.session.scalar(
+            db.select(User).filter_by(email=email)
+        )
 
         if existing_user:
-            flash("An account with this email already exists.")
-            return redirect(url_for("register"))
+            if not existing_user.email_verified:
+                flash(
+                    "This email has a pending registration. "
+                    "Please verify it or request a new code.",
+                    "error",
+                )
+                return redirect(url_for("verify_email", email=email))
+
+            flash("An account with this email already exists.", "error")
+            return render_template("register.html")
+
+        otp = str(secrets.randbelow(900000) + 100000)
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
 
         user = User(
             name=name,
             phone=phone,
             email=email,
             password_hash=generate_password_hash(password),
+            email_verified=False,
+            email_otp_hash=generate_password_hash(otp),
+            email_otp_expires_at=now + timedelta(minutes=5),
+            email_otp_attempts=0,
+            email_otp_last_sent_at=now,
         )
 
-        db.session.add(user)
-        db.session.commit()
+        try:
+            db.session.add(user)
+            db.session.flush()
 
-        flash("Account created successfully. Please log in.")
-        return redirect(url_for("login"))
+            msg = Message(
+                subject="Verify your Tagbandhu email",
+                recipients=[email],
+                body=(
+                    f"Hi {name},\n\n"
+                    f"Your Tagbandhu verification code is: {otp}\n\n"
+                    "This code expires in 5 minutes. "
+                    "Do not share it with anyone.\n\n"
+                    "If you did not request this code, ignore this email."
+                ),
+            )
+
+            mail.send(msg)
+            db.session.commit()
+
+        except Exception:
+            db.session.rollback()
+            app.logger.exception(
+                "Registration or verification email sending failed."
+            )
+            flash(
+                "We could not complete registration or send your "
+                "verification email. Please try again.",
+                "error",
+            )
+            return render_template("register.html")
+
+        flash("A verification code has been sent to your email.", "success")
+        return redirect(url_for("verify_email", email=email))
 
     return render_template("register.html")
 
+@app.route("/verify-email", methods=["GET", "POST"])
+def verify_email():
+    email = request.args.get("email", "").strip().lower()
+
+    if request.method == "POST":
+        email = request.form.get("email", email).strip().lower()
+        otp = request.form.get("otp", "").strip()
+
+    user = db.session.scalar(
+        db.select(User).filter_by(email=email)
+    )
+
+    if not user:
+        flash("Account not found. Please register again.", "error")
+        return redirect(url_for("register"))
+
+    if user.email_verified:
+        flash("Your email is already verified. Please log in.", "success")
+        return redirect(url_for("login"))
+
+    if request.method == "POST":
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+
+        if not re.fullmatch(r"[0-9]{6}", otp):
+            flash("Please enter a valid 6-digit verification code.", "error")
+            return render_template("verify_email.html", email=email)
+
+        if user.email_otp_attempts >= 5:
+            flash("Too many attempts. Please request a new verification code.", "error")
+            return render_template("verify_email.html", email=email)
+
+        if (
+            not user.email_otp_expires_at
+            or now > user.email_otp_expires_at
+        ):
+            flash("Your verification code has expired. Please request a new one.", "error")
+            return render_template("verify_email.html", email=email)
+
+        user.email_otp_attempts += 1
+
+        if not check_password_hash(user.email_otp_hash or "", otp):
+            db.session.commit()
+            flash("Incorrect verification code. Please try again.", "error")
+            return render_template("verify_email.html", email=email)
+
+        user.email_verified = True
+        user.email_otp_hash = None
+        user.email_otp_expires_at = None
+        user.email_otp_attempts = 0
+        db.session.commit()
+
+        flash("Email verified successfully! You can now log in.", "success")
+        return redirect(url_for("login"))
+
+    return render_template("verify_email.html", email=email)
+
+@app.route("/resend-verification", methods=["POST"])
+def resend_verification():
+    email = request.form.get("email", "").strip().lower()
+
+    user = db.session.scalar(
+        db.select(User).filter_by(email=email)
+    )
+
+    if not user:
+        flash("Account not found. Please register again.", "error")
+        return redirect(url_for("register"))
+
+    if user.email_verified:
+        flash("Your email is already verified. Please log in.", "success")
+        return redirect(url_for("login"))
+
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+
+    if user.email_otp_last_sent_at:
+        elapsed = (now - user.email_otp_last_sent_at).total_seconds()
+
+        if elapsed < 60:
+            wait_seconds = max(1, int(60 - elapsed))
+            flash(
+                f"Please wait {wait_seconds} seconds before requesting another code.",
+                "error",
+            )
+            return redirect(url_for("verify_email", email=email))
+
+    otp = str(secrets.randbelow(900000) + 100000)
+
+    msg = Message(
+        subject="Your new Tagbandhu verification code",
+        recipients=[email],
+        body=(
+            f"Hi {user.name},\n\n"
+            f"Your new Tagbandhu verification code is: {otp}\n\n"
+            "This code expires in 5 minutes. "
+            "Do not share it with anyone.\n\n"
+            "If you did not request this code, ignore this email."
+        ),
+    )
+
+    try:
+        mail.send(msg)
+    except Exception:
+        app.logger.exception("Failed to resend verification email.")
+        flash("Could not send a new code. Please try again later.", "error")
+        return redirect(url_for("verify_email", email=email))
+
+    user.email_otp_hash = generate_password_hash(otp)
+    user.email_otp_expires_at = now + timedelta(minutes=5)
+    user.email_otp_attempts = 0
+    user.email_otp_last_sent_at = now
+    db.session.commit()
+
+    flash("A new verification code has been sent to your email.", "success")
+    return redirect(url_for("verify_email", email=email))
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
@@ -762,11 +1189,27 @@ def login():
 
         user = db.session.scalar(db.select(User).filter_by(email=email))
 
+        
         if user and check_password_hash(user.password_hash, password):
+
+            # Require email verification before login
+            if not user.email_verified:
+                flash(
+                    "Please verify your email before logging in.",
+                    "error",
+                )
+                return redirect(url_for("verify_email", email=user.email))
+
+            # Prevent deactivated users from logging in
+            if not user.is_active:
+                flash("Your account has been deactivated. Please contact support.")
+                return redirect(url_for("login"))
+
             session.clear()
             session["user_id"] = user.id
             session["user_name"] = user.name
             session["user_email"] = user.email
+
             return redirect(url_for("dashboard"))
 
         flash("Invalid email or password.")
@@ -808,7 +1251,6 @@ def dashboard():
 
 @app.route("/activate-tag", methods=["POST"])
 @login_required
-
 def activate_tag():
     tag_code = request.form.get("tag_code", "").strip()
 
@@ -819,9 +1261,7 @@ def activate_tag():
     result = db.session.execute(
         db.update(Tag)
         .where(
-            Tag.tag_code == tag_code,
-            Tag.owner_id.is_(None),
-            Tag.is_active.is_(False)
+            Tag.tag_code == tag_code, Tag.owner_id.is_(None), Tag.is_active.is_(False)
         )
         .values(
             owner_id=session["user_id"],
@@ -835,21 +1275,21 @@ def activate_tag():
         flash("Tag code is invalid or has already been activated.")
         return redirect(url_for("dashboard"))
 
-    tag = db.session.scalar(
-        db.select(Tag).filter_by(tag_code=tag_code)
-    )
+    tag = db.session.scalar(db.select(Tag).filter_by(tag_code=tag_code))
 
     if tag is None:
         db.session.rollback()
         flash("Tag could not be found. Please try again.")
         return redirect(url_for("dashboard"))
 
-    db.session.add(TagActivity(
-        tag_id=tag.id,
-        action="activated",
-        details="Tag activated by customer",
-        created_at=datetime.now(ZoneInfo("Asia/Kolkata"))
-    ))
+    db.session.add(
+        TagActivity(
+            tag_id=tag.id,
+            action="activated",
+            details="Tag activated by customer",
+            created_at=datetime.now(ZoneInfo("Asia/Kolkata")),
+        )
+    )
 
     db.session.commit()
     flash("Your tag has been activated successfully!")
@@ -860,10 +1300,7 @@ def activate_tag():
 @login_required
 def customer_deactivate_tag(tag_id):
     tag = db.session.scalar(
-        db.select(Tag).where(
-            Tag.id == tag_id,
-            Tag.owner_id == session["user_id"]
-        )
+        db.select(Tag).where(Tag.id == tag_id, Tag.owner_id == session["user_id"])
     )
 
     if tag is None:
@@ -875,12 +1312,14 @@ def customer_deactivate_tag(tag_id):
 
     tag.is_active = False
 
-    db.session.add(TagActivity(
-        tag_id=tag.id,
-        action="deactivated",
-        details="Tag deactivated by customer",
-        created_at=datetime.now(ZoneInfo("Asia/Kolkata"))
-    ))
+    db.session.add(
+        TagActivity(
+            tag_id=tag.id,
+            action="deactivated",
+            details="Tag deactivated by customer",
+            created_at=datetime.now(ZoneInfo("Asia/Kolkata")),
+        )
+    )
 
     db.session.commit()
 
@@ -888,15 +1327,11 @@ def customer_deactivate_tag(tag_id):
     return redirect(url_for("dashboard"))
 
 
-
 @app.route("/my-tag/<int:tag_id>/reactivate", methods=["POST"])
 @login_required
 def customer_reactivate_tag(tag_id):
     tag = db.session.scalar(
-        db.select(Tag).where(
-            Tag.id == tag_id,
-            Tag.owner_id == session["user_id"]
-        )
+        db.select(Tag).where(Tag.id == tag_id, Tag.owner_id == session["user_id"])
     )
 
     if tag is None:
@@ -908,12 +1343,14 @@ def customer_reactivate_tag(tag_id):
 
     tag.is_active = True
 
-    db.session.add(TagActivity(
-        tag_id=tag.id,
-        action="reactivated",
-        details="Tag reactivated by customer",
-        created_at=datetime.now(ZoneInfo("Asia/Kolkata"))
-    ))
+    db.session.add(
+        TagActivity(
+            tag_id=tag.id,
+            action="reactivated",
+            details="Tag reactivated by customer",
+            created_at=datetime.now(ZoneInfo("Asia/Kolkata")),
+        )
+    )
 
     db.session.commit()
 
@@ -954,5 +1391,20 @@ def logout():
 with app.app_context():
     db.create_all()
 
+@app.route("/verify-email-preview")
+def verify_email_preview():
+    return render_template(
+        "verify_email.html",
+        email="preview@example.com",
+        preview=True
+    )
+
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(
+        host="0.0.0.0",
+        port=5000,
+        debug=os.environ.get("FLASK_DEBUG", "true").lower() == "true",
+    )
+
+
+

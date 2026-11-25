@@ -29,7 +29,7 @@ Tagbandhu is a web application designed to help people identify and reconnect wi
 1. Clone the repository:
 
    ```bash
-   git clone https://github.com/Shazia63khan/Tagbandhu.git
+   git clone https://github.com/shazia-bano/Tagbandhu.git
    cd Tagbandhu
    ```
 
@@ -67,4 +67,4 @@ Under development as a final-year academic project.
 
 Shazia Bano
 
-GitHub: [Shazia63khan](https://github.com/Shazia63khan)
+GitHub: [shazia-bano](https://github.com/Shazia63khan)
