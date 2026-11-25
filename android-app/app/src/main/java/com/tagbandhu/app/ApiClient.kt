@@ -135,7 +135,7 @@ interface TagbandhuApi {
 // Retrofit client
 object ApiClient {
 
-    private const val BASE_URL = "http://10.135.243.87:5000/"
+    private const val BASE_URL = "https://tagbandhu.onrender.com/"
 
     val service: TagbandhuApi by lazy {
         Retrofit.Builder()

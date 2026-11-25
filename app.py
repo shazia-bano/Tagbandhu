@@ -22,6 +22,7 @@ from itsdangerous import URLSafeTimedSerializer, BadSignature
 import uuid
 import io
 import re
+import requests
 import csv
 import zipfile
 from flask_mail import Mail, Message
@@ -436,7 +437,7 @@ def test_email():
     recipient = session.get("user_email")
 
     if not recipient:
-        return "User email not found in session.", 400
+        return "User email not found in session.", 400 
 
     try:
         msg = Message(

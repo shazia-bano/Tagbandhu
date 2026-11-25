@@ -8,3 +8,4 @@ qrcode[pil]
 reportlab
 gunicorn
 psycopg[binary]
+requests
