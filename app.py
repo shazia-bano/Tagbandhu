@@ -1627,7 +1627,7 @@ def register():
                 },
                 json={
                     "from": "Tagbandhu <onboarding@resend.dev>",
-                    "to": ["saniya975857@gmail.com"],
+                    "to": [email],
                     "subject": "Verify your Tagbandhu email",
                     "text": (
                         f"Hi {name},\n\n"
