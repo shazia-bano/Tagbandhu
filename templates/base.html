@@ -27,7 +27,7 @@
 
         <nav>
             <a href="{{ url_for('home') }}">Home</a>
-            <a href="{{ url_for('products') }}">Our Tags</a>
+            <a href="{{ url_for('products') }}">Buy Tags</a>
 
             {% if session.get('user_id') %}
             <a href="{{ url_for('dashboard') }}">Dashboard</a>

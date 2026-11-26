@@ -1,6 +1,7 @@
+
 {% extends "base.html" %}
 
-{% block title %}Our Tags | Tagbandhu{% endblock %}
+{% block title %}Buy Tags | Tagbandhu{% endblock %}
 
 {% block content %}
 
@@ -8,9 +9,9 @@
     <p class="eyebrow">THE TAGBANDHU COLLECTION</p>
     <h1>Small tags. Meaningful connections.</h1>
     <p>
-        Discover QR-powered wristbands and tags designed to help
-        families reconnect and make lost belongings easier to return.
-        Your privacy stays at the heart of the experience.
+        Explore QR-powered tags designed to help families reconnect
+        and make lost belongings easier to return.
+        Every tag is priced at just ₹99.
     </p>
 </section>
 
@@ -28,22 +29,24 @@
 
             <div class="product-info">
                 <p class="product-category">SAFETY COLLECTION</p>
-                <h2>Children's Wristband</h2>
+                <h2>Children's Safety Tag</h2>
                 <p>
-                    A wearable QR tag designed to help someone
+                    A QR identification tag designed to help someone
                     contact a child's family if they get separated.
                 </p>
 
                 <ul>
                     <li>QR-based identification</li>
                     <li>Family contact through a scan page</li>
-                    <li>Personal details kept private by default</li>
+                    <li>Privacy-conscious contact sharing</li>
                 </ul>
 
-                <button class="product-button" type="button"
-                    onclick="alert('Children’s wristbands are planned for a future release.')">
-                    Coming Soon
-                </button>
+                <p class="product-price">₹99 <span>/ tag</span></p>
+
+                <a class="product-button"
+                   href="{{ url_for('contact') }}">
+                    Contact to Buy
+                </a>
             </div>
         </article>
 
@@ -60,21 +63,22 @@
                 <p class="product-category">SAFETY COLLECTION</p>
                 <h2>Elderly Wristband</h2>
                 <p>
-                    A simple QR wristband that can help a finder
-                    contact a family member if an older adult
-                    needs assistance or gets separated.
+                    A QR wristband concept to help a finder reach
+                    a family member when an older adult needs assistance.
                 </p>
 
                 <ul>
-                    <li>Easy-to-access QR profile</li>
+                    <li>QR identification</li>
                     <li>Family contact option</li>
-                    <li>Designed with simplicity in mind</li>
+                    <li>Simple scan-based access</li>
                 </ul>
 
-                <button class="product-button" type="button"
-                    onclick="alert('Elderly wristbands are planned for a future release.')">
-                    Coming Soon
-                </button>
+                <p class="product-price">₹99 <span>/ tag</span></p>
+
+                <a class="product-button"
+                   href="{{ url_for('contact') }}">
+                    Contact to Buy
+                </a>
             </div>
         </article>
 
@@ -89,23 +93,24 @@
 
             <div class="product-info">
                 <p class="product-category">TRAVEL COLLECTION</p>
-                <h2>Luggage & Bag Tag</h2>
+                <h2>Luggage &amp; Bag Tag</h2>
                 <p>
-                    Attach a QR tag to your bag or suitcase so
-                    someone who finds it can reach you through
-                    the available contact option.
+                    A QR tag for your bag or suitcase that can help
+                    someone who finds it access the available contact page.
                 </p>
 
                 <ul>
-                    <li>Scan using a compatible phone camera</li>
-                    <li>Owner-approved contact information</li>
-                    <li>No separate app needed for scanning</li>
+                    <li>Phone-camera QR scanning</li>
+                    <li>Contact through the scan page</li>
+                    <li>Designed for everyday travel</li>
                 </ul>
 
-                <button class="product-button" type="button"
-                    onclick="alert('Luggage tags are planned for a future release.')">
-                    Coming Soon
-                </button>
+                <p class="product-price">₹99 <span>/ tag</span></p>
+
+                <a class="product-button"
+                   href="{{ url_for('contact') }}">
+                    Contact to Buy
+                </a>
             </div>
         </article>
 
@@ -122,34 +127,33 @@
                 <p class="product-category">EVERYDAY COLLECTION</p>
                 <h2>QR Keychain</h2>
                 <p>
-                    Add a QR keychain to your everyday essentials
-                    to give someone who finds your lost keys
-                    a way to contact you.
+                    A QR identification tag for everyday belongings,
+                    giving a finder a way to reach the owner.
                 </p>
 
                 <ul>
-                    <li>Compact everyday tag concept</li>
-                    <li>Finder-friendly scan page</li>
-                    <li>Private contact details by default</li>
+                    <li>Compact keychain concept</li>
+                    <li>QR-based contact page</li>
+                    <li>Privacy-conscious design</li>
                 </ul>
 
-                <button class="product-button" type="button"
-                    onclick="alert('QR keychains are planned for a future release.')">
-                    Coming Soon
-                </button>
+                <p class="product-price">₹99 <span>/ tag</span></p>
+
+                <a class="product-button"
+                   href="{{ url_for('contact') }}">
+                    Contact to Buy
+                </a>
             </div>
         </article>
 
     </div>
 
     <div class="privacy-note">
-        <span>🔒</span>
         <div>
             <h3>Your information, your choice.</h3>
             <p>
-                Tagbandhu is being designed to share only selected
-                information and keep private contact details hidden
-                by default. Final features will depend on implementation.
+                Tagbandhu aims to help people reconnect while
+                keeping personal contact information private by default.
             </p>
         </div>
     </div>
