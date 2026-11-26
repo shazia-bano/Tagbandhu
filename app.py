@@ -20,6 +20,10 @@ import time
 import qrcode
 from zoneinfo import ZoneInfo
 from itsdangerous import URLSafeTimedSerializer, BadSignature
+from cashfree_pg.api_client import Cashfree
+from cashfree_pg.models.create_order_request import CreateOrderRequest
+from cashfree_pg.models.customer_details import CustomerDetails
+from cashfree_pg.models.order_meta import OrderMeta
 import uuid
 import io
 import re
@@ -67,6 +71,27 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 
 db = SQLAlchemy(app)
+def get_cashfree_client():
+    client_id = os.environ.get("CASHFREE_CLIENT_ID")
+    client_secret = os.environ.get("CASHFREE_CLIENT_SECRET")
+
+    if not client_id or not client_secret:
+        raise RuntimeError("Cashfree credentials are missing.")
+
+    environment = os.environ.get("CASHFREE_ENV", "SANDBOX").upper()
+
+    if environment == "SANDBOX":
+        cashfree_environment = Cashfree.SANDBOX
+    elif environment == "PRODUCTION":
+        cashfree_environment = Cashfree.PRODUCTION
+    else:
+        raise RuntimeError("Invalid Cashfree environment.")
+
+    return Cashfree(
+        XEnvironment=cashfree_environment,
+        XClientId=client_id,
+        XClientSecret=client_secret
+    )
 
 migrate = Migrate(app, db)
 
@@ -141,6 +166,37 @@ class TagActivity(db.Model):
 
     tag = db.relationship("Tag", backref=db.backref("activity_history", lazy=True))
 
+
+class TagOrder(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+
+    order_id = db.Column(db.String(45), unique=True, nullable=False)
+    product_code = db.Column(db.String(50), nullable=False)
+    product_name = db.Column(db.String(100), nullable=False)
+
+    amount = db.Column(db.Numeric(10, 2), nullable=False)
+    currency = db.Column(db.String(3), default="INR", nullable=False)
+    status = db.Column(db.String(20), default="PENDING", nullable=False)
+
+    payment_session_id = db.Column(db.String(1000))
+    cf_order_id = db.Column(db.String(50))
+
+    customer_name = db.Column(db.String(100), nullable=False)
+    customer_email = db.Column(db.String(120), nullable=False)
+    customer_phone = db.Column(db.String(10), nullable=False)
+
+    shipping_address = db.Column(db.Text, nullable=False)
+    shipping_city = db.Column(db.String(100), nullable=False)
+    shipping_state = db.Column(db.String(100), nullable=False)
+    shipping_pincode = db.Column(db.String(10), nullable=False)
+
+    created_at = db.Column(
+        db.DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False
+    )
+
+    paid_at = db.Column(db.DateTime(timezone=True))
 
 def login_required(view):
     @wraps(view)
@@ -673,6 +729,208 @@ def home():
 def products():
     return render_template("products.html")
 
+
+@app.route("/create-payment-order", methods=["POST"])
+def create_payment_order():
+    data = request.get_json(silent=True) or {}
+
+    products = {
+        "childrens-safety-tag": "Children's Safety Tag",
+        "elderly-wristband": "Elderly Wristband",
+        "luggage-bag-tag": "Luggage & Bag Tag",
+        "qr-keychain": "QR Keychain",
+    }
+
+    product_code = data.get("product_code", "").strip()
+
+    if product_code not in products:
+        return jsonify({"error": "Invalid product selected."}), 400
+
+    customer_name = data.get("customer_name", "").strip()
+    customer_email = data.get("customer_email", "").strip().lower()
+    customer_phone = data.get("customer_phone", "").strip()
+    shipping_address = data.get("shipping_address", "").strip()
+    shipping_city = data.get("shipping_city", "").strip()
+    shipping_state = data.get("shipping_state", "").strip()
+    shipping_pincode = data.get("shipping_pincode", "").strip()
+
+    if not all([
+        customer_name,
+        customer_email,
+        customer_phone,
+        shipping_address,
+        shipping_city,
+        shipping_state,
+        shipping_pincode
+    ]):
+        return jsonify({"error": "Please complete all customer details."}), 400
+
+    if len(customer_name) < 3 or len(customer_name) > 100:
+        return jsonify({"error": "Please enter a valid name."}), 400
+
+    if "@" not in customer_email or len(customer_email) > 120:
+        return jsonify({"error": "Please enter a valid email address."}), 400
+
+    if len(customer_phone) != 10 or not customer_phone.isdigit():
+        return jsonify({"error": "Enter a valid 10-digit mobile number."}), 400
+
+    if not shipping_pincode.isdigit() or len(shipping_pincode) != 6:
+        return jsonify({"error": "Enter a valid 6-digit PIN code."}), 400
+
+    order_id = "TB" + secrets.token_hex(10).upper()
+
+    new_order = TagOrder(
+        order_id=order_id,
+        product_code=product_code,
+        product_name=products[product_code],
+        amount=99.00,
+        currency="INR",
+        status="PENDING",
+        customer_name=customer_name,
+        customer_email=customer_email,
+        customer_phone=customer_phone,
+        shipping_address=shipping_address,
+        shipping_city=shipping_city,
+        shipping_state=shipping_state,
+        shipping_pincode=shipping_pincode
+    )
+
+    try:
+        db.session.add(new_order)
+        db.session.commit()
+
+        customer_details = CustomerDetails(
+            customer_id="tb_" + secrets.token_hex(8),
+            customer_name=customer_name,
+            customer_email=customer_email,
+            customer_phone=customer_phone
+        )
+
+        order_meta = OrderMeta(
+            return_url=(
+                request.host_url.rstrip("/")
+                + "/payment-return?order_id={order_id}"
+            )
+        )
+
+        cashfree_request = CreateOrderRequest(
+            order_id=order_id,
+            order_amount=99.00,
+            order_currency="INR",
+            customer_details=customer_details,
+            order_meta=order_meta,
+            order_note="Tagbandhu product purchase"
+        )
+
+        cashfree = get_cashfree_client()
+
+        response = cashfree.PGCreateOrder(
+            cashfree_request,
+            None,
+            None
+        )
+
+        payment_data = response.data
+
+        new_order.payment_session_id = payment_data.payment_session_id
+        new_order.cf_order_id = str(payment_data.cf_order_id)
+
+        db.session.commit()
+
+        return jsonify({
+            "success": True,
+            "order_id": order_id,
+            "payment_session_id": payment_data.payment_session_id
+        }), 200
+
+    except Exception:
+        db.session.rollback()
+
+        failed_order = db.session.scalar(
+            db.select(TagOrder).filter_by(order_id=order_id)
+        )
+
+        if failed_order and failed_order.status == "PENDING":
+            failed_order.status = "FAILED"
+            db.session.commit()
+
+        app.logger.exception("Cashfree order creation failed.")
+
+        return jsonify({
+            "error": "Unable to create payment order. Please try again."
+        }), 500
+
+@app.route("/payment-return", methods=["GET"])
+def payment_return():
+    order_id = request.args.get("order_id", "").strip()
+
+    if not order_id:
+        flash("Payment order ID is missing.")
+        return redirect(url_for("products"))
+
+    order = db.session.scalar(
+        db.select(TagOrder).filter_by(order_id=order_id)
+    )
+
+    if order is None:
+        flash("Order not found.")
+        return redirect(url_for("products"))
+
+    try:
+        cashfree = get_cashfree_client()
+
+        response = cashfree.PGFetchOrder(
+            order_id,
+            None,
+            None
+        )
+
+        cashfree_order = response.data
+
+        if (
+            cashfree_order.order_id != order.order_id
+            or cashfree_order.order_currency != "INR"
+            or round(float(cashfree_order.order_amount), 2)
+            != round(float(order.amount), 2)
+        ):
+            app.logger.error(
+                "Cashfree order verification mismatch: %s",
+                order_id
+            )
+            flash("Unable to verify payment details.")
+            return redirect(url_for("products"))
+
+        if cashfree_order.order_status == "PAID":
+            if order.status != "PAID":
+                order.status = "PAID"
+                order.paid_at = datetime.now(timezone.utc)
+                db.session.commit()
+
+            flash("Payment successful! Your order has been confirmed.")
+
+        elif cashfree_order.order_status in (
+            "EXPIRED",
+            "TERMINATED",
+            "CANCELLED"
+        ):
+            if order.status != "PAID":
+                order.status = "FAILED"
+                db.session.commit()
+
+            flash("Payment was not completed. Please try again.")
+
+        else:
+            flash(
+                "Payment is not confirmed yet. "
+                "Please check your order status shortly."
+            )
+
+    except Exception:
+        db.session.rollback()
+        app.logger.exception("Cashfree payment verification failed.")
+        flash("We could not verify your payment. Please try again later.")
+
+    return redirect(url_for("products"))
 
 @app.route("/scan/<tag_code>")
 def scan_tag(tag_code):
