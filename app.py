@@ -1521,19 +1521,6 @@ def get_email_typo_suggestion(email):
 
     return None
 
-
-
-
-@app.route("/register", methods=["GET", "POST"])
-def register():
-    if request.method == "POST":
-        name = request.form.get("name", "").strip()
-
-    return None
-
-
-
-
 @app.route("/register", methods=["GET", "POST"])
 def register():
     if request.method == "POST":
