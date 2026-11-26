@@ -1158,6 +1158,20 @@ def admin_inventory():
         total_users=total_users,
     )
 
+
+@app.route("/admin/orders")
+@admin_required
+def admin_orders():
+    orders = TagOrder.query.order_by(
+        TagOrder.created_at.desc()
+    ).all()
+
+    return render_template(
+        "admin_orders.html",
+        orders=orders
+    )
+
+
 @app.route("/admin/check-tags")
 @admin_required
 def admin_check_tags():
