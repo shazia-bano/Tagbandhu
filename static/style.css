@@ -6553,3 +6553,47 @@ html[data-theme="dark"] #password-rules .password-rule.is-valid {
         transform: none;
     }
 }
+
+
+/* Compact Registration Page */
+.auth-container {
+    padding: 20px 15px;
+}
+
+.auth-card {
+    max-width: 390px;
+    padding: 22px 24px;
+    margin: 15px auto;
+}
+
+.auth-card h1 {
+    font-size: 25px;
+    margin-bottom: 8px;
+}
+
+.auth-card p {
+    font-size: 13px;
+    margin-bottom: 12px;
+}
+
+.auth-card input {
+    padding: 9px 11px;
+    font-size: 13px;
+    margin-bottom: 10px;
+}
+
+.auth-card button {
+    padding: 10px;
+    font-size: 14px;
+}
+
+.auth-card label {
+    font-size: 12px;
+}
+
+@media (max-width: 480px) {
+    .auth-card {
+        max-width: 350px;
+        padding: 18px;
+    }
+}
