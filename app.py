@@ -1159,6 +1159,7 @@ def admin_inventory():
     )
 
 
+
 @app.route("/admin/orders")
 @admin_required
 def admin_orders():
@@ -1168,8 +1169,10 @@ def admin_orders():
 
     return render_template(
         "admin_orders.html",
-        orders=orders
+        orders=orders,
+        timedelta=timedelta
     )
+
 
 
 @app.route("/admin/check-tags")
