@@ -5,9 +5,236 @@
 
 {% block content %}
 
+<style>
+.products-hero {
+    text-align: center;
+    padding: 55px 20px 40px;
+}
+
+.products-hero .eyebrow {
+    color: #168b85;
+    font-weight: 700;
+    letter-spacing: 2px;
+    font-size: 12px;
+}
+
+.products-hero h1 {
+    font-size: clamp(28px, 5vw, 42px);
+    margin: 12px 0;
+}
+
+.products-hero > p:last-child {
+    max-width: 650px;
+    margin: auto;
+    line-height: 1.7;
+    opacity: 0.8;
+}
+
+.products-section {
+    max-width: 1150px;
+    margin: auto;
+    padding: 20px;
+}
+
+.product-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 25px;
+}
+
+.product-card {
+    background: var(--card-bg, white);
+    color: var(--text-color, #102a43);
+    border-radius: 18px;
+    overflow: hidden;
+    box-shadow: 0 5px 22px rgba(0,0,0,0.09);
+    border: 1px solid rgba(128,128,128,0.15);
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.product-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 12px 28px rgba(0,0,0,0.13);
+}
+
+.product-visual {
+    position: relative;
+    height: 260px;
+    background: #eef4f4;
+    overflow: hidden;
+}
+
+.product-visual img {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: cover;
+    transition: transform 0.4s ease;
+}
+
+.product-card:hover .product-visual img {
+    transform: scale(1.04);
+}
+
+.product-label {
+    position: absolute;
+    top: 15px;
+    left: 15px;
+    z-index: 1;
+    background: rgba(255,255,255,0.94);
+    color: #176d68;
+    padding: 8px 13px;
+    border-radius: 20px;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 1px;
+}
+
+.product-info {
+    padding: 22px;
+}
+
+.product-category {
+    color: #168b85;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 1.4px;
+}
+
+.product-info h2 {
+    font-size: 22px;
+    margin: 9px 0;
+}
+
+.product-info > p:not(.product-category):not(.product-price) {
+    line-height: 1.65;
+    opacity: 0.82;
+}
+
+.product-info ul {
+    padding-left: 20px;
+    line-height: 1.9;
+    margin: 15px 0;
+}
+
+.product-price {
+    font-size: 25px;
+    font-weight: 800;
+    margin: 18px 0;
+}
+
+.product-price span {
+    font-size: 13px;
+    font-weight: 400;
+    opacity: 0.7;
+}
+
+.product-button {
+    display: block;
+    width: 100%;
+    border: none;
+    border-radius: 9px;
+    padding: 13px 18px;
+    background: #168b85;
+    color: white;
+    font-weight: 700;
+    font-size: 15px;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.product-button:hover {
+    background: #106c67;
+}
+
+.product-button:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+}
+
+.privacy-note {
+    margin: 40px 0;
+    padding: 25px;
+    border-radius: 14px;
+    background: rgba(22,139,133,0.08);
+    text-align: center;
+}
+
+.privacy-note p {
+    line-height: 1.7;
+}
+
+@media (max-width: 700px) {
+    .product-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .product-visual {
+        height: 240px;
+    }
+
+    .products-section {
+        padding: 12px;
+    }
+}
+
+/* Purchase modal */
+
+#purchase-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    background: rgba(0,0,0,0.68);
+    padding: 20px;
+    overflow-y: auto;
+}
+
+.purchase-modal-content {
+    max-width: 520px;
+    margin: 30px auto;
+    background: var(--card-bg, white);
+    color: var(--text-color, #102a43);
+    padding: 25px;
+    border-radius: 14px;
+}
+
+.purchase-modal-content input,
+.purchase-modal-content textarea {
+    width: 100%;
+    padding: 11px;
+    margin: 6px 0 14px;
+    border: 1px solid #cbd5e0;
+    border-radius: 7px;
+    box-sizing: border-box;
+    font: inherit;
+}
+
+.purchase-modal-content label {
+    font-weight: 600;
+}
+
+.modal-close {
+    float: right;
+    border: 0;
+    background: none;
+    font-size: 26px;
+    cursor: pointer;
+    color: inherit;
+}
+
+@media (max-width: 480px) {
+    .purchase-modal-content {
+        padding: 18px;
+    }
+}
+</style>
+
 <section class="products-hero">
     <p class="eyebrow">THE TAGBANDHU COLLECTION</p>
+
     <h1>Small tags. Meaningful connections.</h1>
+
     <p>
         Explore QR-powered tags designed to help families reconnect
         and make lost belongings easier to return.
@@ -16,51 +243,72 @@
 </section>
 
 <section class="products-section">
+
     <div class="product-grid">
 
+        <!-- Children's Safety Tag -->
         <article class="product-card">
             <div class="product-visual">
                 <span class="product-label">FOR CHILDREN</span>
-                <div class="product-symbol product-symbol-wristband">
-                    <span>TB</span>
-                </div>
-                <div class="sample-tag">TAGBANDHU · QR TAG</div>
+                <img
+                    src="{{ url_for('static', filename='images/childrens-safety-tag.jpeg') }}"
+                    alt="Children's Safety QR Wristband"
+                    loading="lazy">
             </div>
+
             <div class="product-info">
                 <p class="product-category">SAFETY COLLECTION</p>
+
                 <h2>Children's Safety Tag</h2>
-                <p>A QR identification tag designed to help someone contact a child's family if they get separated.</p>
+
+                <p>
+                    A QR identification tag designed to help someone
+                    contact a child's family if they get separated.
+                </p>
+
                 <ul>
                     <li>QR-based identification</li>
                     <li>Family contact through a scan page</li>
                     <li>Privacy-conscious contact sharing</li>
                 </ul>
+
                 <p class="product-price">₹99 <span>/ tag</span></p>
+
                 <button class="product-button" type="button"
-                    onclick="openPurchaseForm('childrens-safety-tag', 'Children\\'s Safety Tag')">
+                    onclick="openPurchaseForm('childrens-safety-tag', 'Children\'s Safety Tag')">
                     Buy Now – ₹99
                 </button>
             </div>
         </article>
 
+        <!-- Elderly Wristband -->
         <article class="product-card">
             <div class="product-visual">
                 <span class="product-label">FOR OLDER ADULTS</span>
-                <div class="product-symbol elderly-wristband">
-                    <span>TB</span>
-                </div>
-                <div class="sample-tag">TAGBANDHU · QR TAG</div>
+                <img
+                    src="{{ url_for('static', filename='images/elderly-wristband.jpeg') }}"
+                    alt="Elderly QR Identification Wristband"
+                    loading="lazy">
             </div>
+
             <div class="product-info">
                 <p class="product-category">SAFETY COLLECTION</p>
+
                 <h2>Elderly Wristband</h2>
-                <p>A QR wristband concept to help a finder reach a family member when an older adult needs assistance.</p>
+
+                <p>
+                    A QR wristband concept to help a finder reach
+                    a family member when an older adult needs assistance.
+                </p>
+
                 <ul>
                     <li>QR identification</li>
                     <li>Family contact option</li>
                     <li>Simple scan-based access</li>
                 </ul>
+
                 <p class="product-price">₹99 <span>/ tag</span></p>
+
                 <button class="product-button" type="button"
                     onclick="openPurchaseForm('elderly-wristband', 'Elderly Wristband')">
                     Buy Now – ₹99
@@ -68,24 +316,34 @@
             </div>
         </article>
 
+        <!-- Luggage & Bag Tag -->
         <article class="product-card">
-            <div class="product-visual luggage-visual">
+            <div class="product-visual">
                 <span class="product-label">FOR TRAVEL</span>
-                <div class="product-symbol luggage-tag">
-                    <span>TB</span>
-                </div>
-                <div class="sample-tag">TAGBANDHU · QR TAG</div>
+                <img
+                    src="{{ url_for('static', filename='images/luggage-bag-tag.jpeg') }}"
+                    alt="QR Luggage and Bag Tag"
+                    loading="lazy">
             </div>
+
             <div class="product-info">
                 <p class="product-category">TRAVEL COLLECTION</p>
+
                 <h2>Luggage &amp; Bag Tag</h2>
-                <p>A QR tag for your bag or suitcase that can help someone who finds it access the available contact page.</p>
+
+                <p>
+                    A QR tag for your bag or suitcase that can help
+                    someone who finds it access the available contact page.
+                </p>
+
                 <ul>
                     <li>Phone-camera QR scanning</li>
                     <li>Contact through the scan page</li>
                     <li>Designed for everyday travel</li>
                 </ul>
+
                 <p class="product-price">₹99 <span>/ tag</span></p>
+
                 <button class="product-button" type="button"
                     onclick="openPurchaseForm('luggage-bag-tag', 'Luggage & Bag Tag')">
                     Buy Now – ₹99
@@ -93,24 +351,34 @@
             </div>
         </article>
 
+        <!-- QR Keychain -->
         <article class="product-card">
             <div class="product-visual">
                 <span class="product-label">FOR EVERYDAY USE</span>
-                <div class="product-symbol keychain-tag">
-                    <span>TB</span>
-                </div>
-                <div class="sample-tag">TAGBANDHU · QR TAG</div>
+                <img
+                    src="{{ url_for('static', filename='images/qr-keychain.jpeg') }}"
+                    alt="Tagbandhu QR Keychain"
+                    loading="lazy">
             </div>
+
             <div class="product-info">
                 <p class="product-category">EVERYDAY COLLECTION</p>
+
                 <h2>QR Keychain</h2>
-                <p>A QR identification tag for everyday belongings, giving a finder a way to reach the owner.</p>
+
+                <p>
+                    A QR identification tag for everyday belongings,
+                    giving a finder a way to reach the owner.
+                </p>
+
                 <ul>
                     <li>Compact keychain concept</li>
                     <li>QR-based contact page</li>
                     <li>Privacy-conscious design</li>
                 </ul>
+
                 <p class="product-price">₹99 <span>/ tag</span></p>
+
                 <button class="product-button" type="button"
                     onclick="openPurchaseForm('qr-keychain', 'QR Keychain')">
                     Buy Now – ₹99
@@ -121,29 +389,22 @@
     </div>
 
     <div class="privacy-note">
-        <div>
-            <h3>Your information, your choice.</h3>
-            <p>
-                Tagbandhu aims to help people reconnect while
-                keeping personal contact information private by default.
-            </p>
-        </div>
+        <h3>Your information, your choice.</h3>
+        <p>
+            Tagbandhu aims to help people reconnect while
+            keeping personal contact information private by default.
+        </p>
     </div>
+
 </section>
 
 <!-- Purchase Form -->
-<div id="purchase-modal"
-     style="display:none; position:fixed; inset:0; z-index:10000;
-     background:rgba(0,0,0,0.65); padding:20px;
-     overflow-y:auto;">
 
-    <div style="max-width:520px; margin:30px auto; background:var(--card-bg, white);
-         color:var(--text-color, #102a43); padding:25px;
-         border-radius:14px;">
+<div id="purchase-modal">
+    <div class="purchase-modal-content">
 
-        <button type="button" onclick="closePurchaseForm()"
-                style="float:right; border:0; background:none;
-                font-size:25px; cursor:pointer;" aria-label="Close">
+        <button type="button" class="modal-close"
+            onclick="closePurchaseForm()" aria-label="Close">
             &times;
         </button>
 
@@ -158,54 +419,48 @@
 
             <label for="customer-name">Full Name</label>
             <input id="customer-name" name="customer_name"
-                   type="text" maxlength="100" required
-                   autocomplete="name"
-                   style="width:100%; padding:11px; margin:6px 0 14px;">
+                type="text" maxlength="100" required
+                autocomplete="name">
 
             <label for="customer-email">Email Address</label>
             <input id="customer-email" name="customer_email"
-                   type="email" maxlength="120" required
-                   autocomplete="email"
-                   style="width:100%; padding:11px; margin:6px 0 14px;">
+                type="email" maxlength="120" required
+                autocomplete="email">
 
             <label for="customer-phone">Mobile Number</label>
             <input id="customer-phone" name="customer_phone"
-                   type="tel" inputmode="numeric"
-                   pattern="[0-9]{10}" maxlength="10" required
-                   autocomplete="tel"
-                   style="width:100%; padding:11px; margin:6px 0 14px;">
+                type="tel" inputmode="numeric"
+                pattern="[0-9]{10}" maxlength="10" required
+                autocomplete="tel">
 
             <label for="shipping-address">Delivery Address</label>
             <textarea id="shipping-address" name="shipping_address"
-                      maxlength="500" required autocomplete="street-address"
-                      style="width:100%; padding:11px; margin:6px 0 14px;"></textarea>
+                maxlength="500" required
+                autocomplete="street-address"></textarea>
 
             <label for="shipping-city">City</label>
             <input id="shipping-city" name="shipping_city"
-                   type="text" maxlength="100" required
-                   autocomplete="address-level2"
-                   style="width:100%; padding:11px; margin:6px 0 14px;">
+                type="text" maxlength="100" required
+                autocomplete="address-level2">
 
             <label for="shipping-state">State</label>
             <input id="shipping-state" name="shipping_state"
-                   type="text" maxlength="100" required
-                   autocomplete="address-level1"
-                   style="width:100%; padding:11px; margin:6px 0 14px;">
+                type="text" maxlength="100" required
+                autocomplete="address-level1">
 
             <label for="shipping-pincode">PIN Code</label>
             <input id="shipping-pincode" name="shipping_pincode"
-                   type="text" inputmode="numeric"
-                   pattern="[0-9]{6}" maxlength="6" required
-                   autocomplete="postal-code"
-                   style="width:100%; padding:11px; margin:6px 0 18px;">
+                type="text" inputmode="numeric"
+                pattern="[0-9]{6}" maxlength="6" required
+                autocomplete="postal-code">
 
             <button type="submit" id="pay-button"
-                    class="product-button" style="width:100%;">
+                class="product-button">
                 Pay ₹99
             </button>
 
             <p id="payment-error" role="alert"
-               style="color:#c0392b; margin-top:12px;"></p>
+                style="color:#c0392b; margin-top:12px;"></p>
 
         </form>
     </div>
@@ -238,9 +493,16 @@
             const formData = new FormData(event.target);
             const data = Object.fromEntries(formData.entries());
 
-            const csrfToken = document.querySelector(
+            const csrfMeta = document.querySelector(
                 'meta[name="csrf-token"]'
-            ).content;
+            );
+
+            if (!csrfMeta) {
+                errorBox.textContent = "Security token is missing. Refresh the page.";
+                button.disabled = false;
+                button.textContent = "Pay ₹99";
+                return;
+            }
 
             try {
                 const response = await fetch(
@@ -249,7 +511,7 @@
                         method: "POST",
                         headers: {
                             "Content-Type": "application/json",
-                            "X-CSRFToken": csrfToken
+                            "X-CSRFToken": csrfMeta.content
                         },
                         body: JSON.stringify(data)
                     }
@@ -272,6 +534,7 @@
 
             } catch (error) {
                 console.error("Checkout error:", error);
+
                 errorBox.textContent = error.message ||
                     "Something went wrong. Please try again.";
 
