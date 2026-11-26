@@ -1,3 +1,5 @@
+from urllib import response
+
 from flask import (
     Flask,
     render_template,
@@ -1674,6 +1676,12 @@ def register():
                 },
                 timeout=10,
             )
+            if not response.ok:
+              app.logger.error(
+                "Resend API rejected email. Status: %s, Response: %s",
+                response.status_code,
+                response.text,
+             )
             response.raise_for_status()
 
             # Save account only after the email API accepts the request
