@@ -1,0 +1,88 @@
+
+{% extends "base.html" %}
+
+{% block title %}Customer Orders | Tagbandhu{% endblock %}
+
+{% block content %}
+<div class="container" style="max-width: 1100px; margin: 40px auto;">
+
+    <h1>Customer Orders</h1>
+    <p>View and track all Tagbandhu product orders.</p>
+
+    <a href="{{ url_for('admin_inventory') }}" class="inventory-reactivate-btn">
+        Back to Inventory
+    </a>
+
+    {% if orders %}
+    <div style="overflow-x: auto; margin-top: 25px;">
+        <table class="inventory-table">
+            <thead>
+                <tr>
+                    <th>Order ID</th>
+                    <th>Customer</th>
+                    <th>Contact</th>
+                    <th>Product</th>
+                    <th>Amount</th>
+                    <th>Payment Status</th>
+                    <th>Delivery Address</th>
+                    <th>Order Date</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                {% for order in orders %}
+                <tr>
+                    <td>{{ order.order_id }}</td>
+
+                    <td>{{ order.customer_name }}</td>
+
+                    <td>
+                        {{ order.customer_email }}<br>
+                        {{ order.customer_phone }}
+                    </td>
+
+                    <td>{{ order.product_name }}</td>
+
+                    <td>₹{{ "%.2f"|format(order.amount) }}</td>
+
+                    <td>
+                        {% if order.status == "PAID" %}
+                        <span class="status active">Paid</span>
+                        {% elif order.status == "PENDING" %}
+                        <span class="status inactive">Pending</span>
+                        {% else %}
+                        <span class="status inactive">
+                            {{ order.status }}
+                        </span>
+                        {% endif %}
+                    </td>
+
+                    <td>
+                        {{ order.shipping_address }}<br>
+                        {{ order.shipping_city }},
+                        {{ order.shipping_state }}<br>
+                        PIN: {{ order.shipping_pincode }}
+                    </td>
+
+                    <td>
+                        {% if order.created_at %}
+                        {{ order.created_at.strftime("%d-%m-%Y %I:%M %p") }}
+                        {% else %}
+                        Not available
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% else %}
+    <div class="inventory-empty" style="margin-top: 25px;">
+        <h3>No customer orders found</h3>
+        <p>New product orders will appear here.</p>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}
