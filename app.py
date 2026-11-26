@@ -898,6 +898,24 @@ def admin_inventory():
         total_users=total_users,
     )
 
+@app.route("/admin/check-tags")
+@admin_required
+def admin_check_tags():
+    tags = Tag.query.order_by(Tag.id.asc()).all()
+
+    return {
+        "total_tags": len(tags),
+        "active_tags": sum(1 for tag in tags if tag.is_active),
+        "tags": [
+            {
+                "id": tag.id,
+                "tag_code": tag.tag_code,
+                "owner_id": tag.owner_id,
+                "is_active": tag.is_active
+            }
+            for tag in tags
+        ]
+    }
 
 @app.route("/admin/activity-history")
 @admin_required
