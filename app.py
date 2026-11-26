@@ -1459,6 +1459,7 @@ def print_inventory_tags():
     )
 
 
+
 def get_email_typo_suggestion(email):
     """Suggest corrections for common email domain typos."""
     parts = email.strip().lower().rsplit("@", 1)
@@ -1468,18 +1469,65 @@ def get_email_typo_suggestion(email):
 
     domain_typos = {
         "gamil.com": "gmail.com",
-        "gamil.in": "gmail.com",
         "gmial.com": "gmail.com",
-        "gmail.con": "gmail.com",
+        "gmal.com": "gmail.com",
+        "gail.com": "gmail.com",
         "gmai.com": "gmail.com",
-        "hotnail.com": "hotmail.com",
+        "gmaill.com": "gmail.com",
+        "gmail.con": "gmail.com",
+        "gmail.co": "gmail.com",
+        "gmail.cm": "gmail.com",
+        "gmail.coom": "gmail.com",
+        "gmaik.com": "gmail.com",
+        "gmaol.com": "gmail.com",
+        "gmsil.com": "gmail.com",
+        "gamil.con": "gmail.com",
+        "ggmail.com": "gmail.com",
+        "gmailll.com": "gmail.com",
+        "gmailll.con": "gmail.com",
+        "gmil.com": "gmail.com",
+        "g-mail.com": "gmail.com",
+        "gmailcom": "gmail.com",
         "yaho.com": "yahoo.com",
+        "yahooo.com": "yahoo.com",
+        "yahoo.con": "yahoo.com",
+        "yahoo.co": "yahoo.com",
+        "yhaoo.com": "yahoo.com",
+        "yhoo.com": "yahoo.com",
+        "yaoo.com": "yahoo.com",
+        "outlok.com": "outlook.com",
+        "outloo.com": "outlook.com",
+        "outlook.con": "outlook.com",
+        "outlook.co": "outlook.com",
+        "outllok.com": "outlook.com",
+        "outook.com": "outlook.com",
+        "hotnail.com": "hotmail.com",
+        "hotmai.com": "hotmail.com",
+        "hotmail.con": "hotmail.com",
+        "hotmial.com": "hotmail.com",
+        "hotmil.com": "hotmail.com",
+        "gmaill.co": "gmail.com",
+        "mail.com": "gmail.com",
+        "icloud.con": "icloud.com",
+        "iclould.com": "icloud.com",
+        "protonmai.com": "protonmail.com",
     }
 
-    corrected_domain = domain_typos.get(parts[1])
+    local_part, domain = parts
+    suggested_domain = domain_typos.get(domain)
 
-    if corrected_domain:
-        return f"{parts[0]}@{corrected_domain}"
+    if suggested_domain:
+        return f"{local_part}@{suggested_domain}"
+
+    return None
+
+
+
+
+@app.route("/register", methods=["GET", "POST"])
+def register():
+    if request.method == "POST":
+        name = request.form.get("name", "").strip()
 
     return None
 
