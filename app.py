@@ -16,6 +16,7 @@ from functools import wraps
 from flask import g
 import os
 import requests
+from flask_migrate import upgrade
 import secrets
 from urllib.parse import urlsplit
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -687,8 +688,26 @@ def api_my_tags():
             ],
         }
     )
+@csrf.exempt
+@app.route("/admin/run-migrations", methods=["POST"])
+def run_migrations():
+    expected_secret = os.environ.get("MIGRATION_SECRET", "")
+    provided_secret = request.headers.get("X-Migration-Secret", "")
 
+    if (
+        not expected_secret
+        or not secrets.compare_digest(provided_secret, expected_secret)
+    ):
+        return "Unauthorized", 401
 
+    try:
+        upgrade()
+        return "Database migration completed.", 200
+    except Exception:
+        db.session.rollback()
+        app.logger.exception("Database migration failed.")
+        return "Migration failed. Check application logs.", 500
+    
 @app.route("/api/profile", methods=["GET", "PUT"])
 @csrf.exempt
 def api_profile():
