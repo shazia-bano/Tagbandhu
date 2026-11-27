@@ -688,8 +688,9 @@ def api_my_tags():
             ],
         }
     )
-@csrf.exempt
+
 @app.route("/admin/run-migrations", methods=["POST"])
+@csrf.exempt
 def run_migrations():
     expected_secret = os.environ.get("MIGRATION_SECRET", "")
     provided_secret = request.headers.get("X-Migration-Secret", "")
