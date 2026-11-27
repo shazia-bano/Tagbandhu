@@ -694,12 +694,16 @@ def api_my_tags():
 def run_migrations():
     expected_secret = os.environ.get("MIGRATION_SECRET", "")
     provided_secret = request.headers.get("X-Migration-Secret", "")
-    app.logger.info(
-        "Migration secret check: configured=%s, provided=%s, match=%s",
-        bool(expected_secret),
-        bool(provided_secret),
-        secrets.compare_digest(expected_secret, provided_secret)
-        if expected_secret and provided_secret else False
+    print(
+       "MIGRATION CHECK:",
+       "configured =", bool(expected_secret),
+       "provided =", bool(provided_secret),
+       "match =", (
+            secrets.compare_digest(expected_secret, provided_secret)
+            if expected_secret and provided_secret
+            else False
+         ),
+       flush=True
     )
 
     if (
