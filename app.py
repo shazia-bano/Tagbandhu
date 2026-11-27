@@ -1900,14 +1900,8 @@ def login():
             session["user_name"] = user.name
             session["user_email"] = user.email
 
-            next_url = request.args.get("next", "")
-
-            if (
-                next_url.startswith("/")
-                and not next_url.startswith("//")
-                 and "\\" not in next_url
-            ):
-               return redirect(next_url)
+            if next_url and is_safe_redirect_target(next_url):
+              return redirect(next_url)
 
             return redirect(url_for("dashboard"))
 
