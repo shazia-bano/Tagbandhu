@@ -1,4 +1,3 @@
-
 {% extends "base.html" %}
 
 {% block title %}Buy Tags | Tagbandhu{% endblock %}
@@ -6,268 +5,268 @@
 {% block content %}
 
 <style>
-.products-hero {
-    text-align: center;
-    padding: 55px 20px 40px;
-}
-
-.products-hero .eyebrow {
-    color: #168b85;
-    font-weight: 700;
-    letter-spacing: 2px;
-    font-size: 12px;
-}
-
-.products-hero h1 {
-    font-size: clamp(28px, 5vw, 42px);
-    margin: 12px 0;
-}
-
-.products-hero > p:last-child {
-    max-width: 650px;
-    margin: auto;
-    line-height: 1.7;
-    opacity: 0.8;
-}
-
-.products-section {
-    max-width: 1150px;
-    margin: auto;
-    padding: 20px;
-}
-
-.product-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 25px;
-}
-
-.product-card {
-    background: var(--card-bg, white);
-    color: var(--text-color, #102a43);
-    border-radius: 18px;
-    overflow: hidden;
-    box-shadow: 0 5px 22px rgba(0,0,0,0.09);
-    border: 1px solid rgba(128,128,128,0.15);
-    transition: transform 0.25s ease, box-shadow 0.25s ease;
-}
-
-.product-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 12px 28px rgba(0,0,0,0.13);
-}
-
-.product-visual {
-    position: relative;
-    height: 260px;
-    background: #eef4f4;
-    overflow: hidden;
-}
-
-.product-visual img {
-    width: 100%;
-    height: 100%;
-    display: block;
-    object-fit: cover;
-    transition: transform 0.4s ease;
-}
-
-.product-card:hover .product-visual img {
-    transform: scale(1.04);
-}
-
-.product-label {
-    position: absolute;
-    top: 15px;
-    left: 15px;
-    z-index: 1;
-    background: rgba(255,255,255,0.94);
-    color: #176d68;
-    padding: 8px 13px;
-    border-radius: 20px;
-    font-size: 10px;
-    font-weight: 800;
-    letter-spacing: 1px;
-}
-
-.product-info {
-    padding: 22px;
-}
-
-.product-category {
-    color: #168b85;
-    font-size: 11px;
-    font-weight: 800;
-    letter-spacing: 1.4px;
-}
-
-.product-info h2 {
-    font-size: 22px;
-    margin: 9px 0;
-}
-
-.product-info > p:not(.product-category):not(.product-price) {
-    line-height: 1.65;
-    opacity: 0.82;
-}
-
-.product-info ul {
-    padding-left: 20px;
-    line-height: 1.9;
-    margin: 15px 0;
-}
-
-.product-price {
-    font-size: 25px;
-    font-weight: 800;
-    margin: 18px 0;
-}
-
-.product-price span {
-    font-size: 13px;
-    font-weight: 400;
-    opacity: 0.7;
-}
-
-.product-button {
-    display: block;
-    width: 100%;
-    border: none;
-    border-radius: 9px;
-    padding: 13px 18px;
-    background: #168b85;
-    color: white;
-    font-weight: 700;
-    font-size: 15px;
-    cursor: pointer;
-    transition: background 0.2s ease;
-}
-
-.product-button:hover {
-    background: #106c67;
-}
-
-.product-button:disabled {
-    opacity: 0.65;
-    cursor: not-allowed;
-}
-
-.privacy-note {
-    margin: 40px 0;
-    padding: 25px;
-    border-radius: 14px;
-    background: rgba(22,139,133,0.08);
-    text-align: center;
-}
-
-.privacy-note p {
-    line-height: 1.7;
-}
-
-@media (max-width: 700px) {
-    .product-grid {
-        grid-template-columns: 1fr;
+    .products-hero {
+        text-align: center;
+        padding: 55px 20px 40px;
     }
 
-    .product-visual {
-        height: 240px;
+    .products-hero .eyebrow {
+        color: #168b85;
+        font-weight: 700;
+        letter-spacing: 2px;
+        font-size: 12px;
+    }
+
+    .products-hero h1 {
+        font-size: clamp(28px, 5vw, 42px);
+        margin: 12px 0;
+    }
+
+    .products-hero>p:last-child {
+        max-width: 650px;
+        margin: auto;
+        line-height: 1.7;
+        opacity: 0.8;
     }
 
     .products-section {
-        padding: 12px;
+        max-width: 1150px;
+        margin: auto;
+        padding: 20px;
     }
-}
 
-/* Compact Purchase Modal */
+    .product-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 25px;
+    }
 
-#purchase-modal {
-    display: none;
-    position: fixed;
-    inset: 0;
-    z-index: 10000;
-    background: rgba(0,0,0,0.68);
-    padding: 10px;
-    overflow-y: auto;
-}
+    .product-card {
+        background: var(--card-bg, white);
+        color: var(--text-color, #102a43);
+        border-radius: 18px;
+        overflow: hidden;
+        box-shadow: 0 5px 22px rgba(0, 0, 0, 0.09);
+        border: 1px solid rgba(128, 128, 128, 0.15);
+        transition: transform 0.25s ease, box-shadow 0.25s ease;
+    }
 
-.purchase-modal-content {
-    width: 100%;
-    max-width: 420px;
-    margin: 12px auto;
-    background: var(--card-bg, white);
-    color: var(--text-color, #102a43);
-    padding: 16px 20px;
-    border-radius: 12px;
-    box-sizing: border-box;
-}
+    .product-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 12px 28px rgba(0, 0, 0, 0.13);
+    }
 
-.purchase-modal-content h2 {
-    font-size: 20px;
-    margin: 4px 0 9px;
-}
+    .product-visual {
+        position: relative;
+        height: 260px;
+        background: #eef4f4;
+        overflow: hidden;
+    }
 
-.purchase-modal-content p {
-    font-size: 13px;
-    margin: 5px 0;
-}
+    .product-visual img {
+        width: 100%;
+        height: 100%;
+        display: block;
+        object-fit: cover;
+        transition: transform 0.4s ease;
+    }
 
-.purchase-modal-content label {
-    display: block;
-    font-size: 12px;
-    font-weight: 600;
-    margin-top: 5px;
-}
+    .product-card:hover .product-visual img {
+        transform: scale(1.04);
+    }
 
-.purchase-modal-content input,
-.purchase-modal-content textarea {
-    display: block;
-    width: 100%;
-    padding: 7px 9px;
-    margin: 3px 0 7px;
-    border: 1px solid #cbd5e0;
-    border-radius: 6px;
-    box-sizing: border-box;
-    font: inherit;
-    font-size: 13px;
-}
+    .product-label {
+        position: absolute;
+        top: 15px;
+        left: 15px;
+        z-index: 1;
+        background: rgba(255, 255, 255, 0.94);
+        color: #176d68;
+        padding: 8px 13px;
+        border-radius: 20px;
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 1px;
+    }
 
-.purchase-modal-content textarea {
-    height: 48px;
-    resize: vertical;
-}
+    .product-info {
+        padding: 22px;
+    }
 
-.purchase-modal-content .product-button {
-    padding: 10px;
-    font-size: 14px;
-    margin-top: 8px;
-}
+    .product-category {
+        color: #168b85;
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 1.4px;
+    }
 
-.modal-close {
-    float: right;
-    border: 0;
-    background: none;
-    font-size: 23px;
-    cursor: pointer;
-    color: inherit;
-}
+    .product-info h2 {
+        font-size: 22px;
+        margin: 9px 0;
+    }
 
-@media (max-width: 480px) {
+    .product-info>p:not(.product-category):not(.product-price) {
+        line-height: 1.65;
+        opacity: 0.82;
+    }
+
+    .product-info ul {
+        padding-left: 20px;
+        line-height: 1.9;
+        margin: 15px 0;
+    }
+
+    .product-price {
+        font-size: 25px;
+        font-weight: 800;
+        margin: 18px 0;
+    }
+
+    .product-price span {
+        font-size: 13px;
+        font-weight: 400;
+        opacity: 0.7;
+    }
+
+    .product-button {
+        display: block;
+        width: 100%;
+        border: none;
+        border-radius: 9px;
+        padding: 13px 18px;
+        background: #168b85;
+        color: white;
+        font-weight: 700;
+        font-size: 15px;
+        cursor: pointer;
+        transition: background 0.2s ease;
+    }
+
+    .product-button:hover {
+        background: #106c67;
+    }
+
+    .product-button:disabled {
+        opacity: 0.65;
+        cursor: not-allowed;
+    }
+
+    .privacy-note {
+        margin: 40px 0;
+        padding: 25px;
+        border-radius: 14px;
+        background: rgba(22, 139, 133, 0.08);
+        text-align: center;
+    }
+
+    .privacy-note p {
+        line-height: 1.7;
+    }
+
+    @media (max-width: 700px) {
+        .product-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .product-visual {
+            height: 240px;
+        }
+
+        .products-section {
+            padding: 12px;
+        }
+    }
+
+    /* Compact Purchase Modal */
+
+    #purchase-modal {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 10000;
+        background: rgba(0, 0, 0, 0.68);
+        padding: 10px;
+        overflow-y: auto;
+    }
+
     .purchase-modal-content {
-        max-width: 370px;
-        padding: 14px 16px;
-        margin: 5px auto;
+        width: 100%;
+        max-width: 420px;
+        margin: 12px auto;
+        background: var(--card-bg, white);
+        color: var(--text-color, #102a43);
+        padding: 16px 20px;
+        border-radius: 12px;
+        box-sizing: border-box;
     }
 
     .purchase-modal-content h2 {
-        font-size: 18px;
+        font-size: 20px;
+        margin: 4px 0 9px;
+    }
+
+    .purchase-modal-content p {
+        font-size: 13px;
+        margin: 5px 0;
+    }
+
+    .purchase-modal-content label {
+        display: block;
+        font-size: 12px;
+        font-weight: 600;
+        margin-top: 5px;
     }
 
     .purchase-modal-content input,
     .purchase-modal-content textarea {
-        padding: 7px;
-        margin-bottom: 5px;
+        display: block;
+        width: 100%;
+        padding: 7px 9px;
+        margin: 3px 0 7px;
+        border: 1px solid #cbd5e0;
+        border-radius: 6px;
+        box-sizing: border-box;
+        font: inherit;
+        font-size: 13px;
     }
-}
+
+    .purchase-modal-content textarea {
+        height: 48px;
+        resize: vertical;
+    }
+
+    .purchase-modal-content .product-button {
+        padding: 10px;
+        font-size: 14px;
+        margin-top: 8px;
+    }
+
+    .modal-close {
+        float: right;
+        border: 0;
+        background: none;
+        font-size: 23px;
+        cursor: pointer;
+        color: inherit;
+    }
+
+    @media (max-width: 480px) {
+        .purchase-modal-content {
+            max-width: 370px;
+            padding: 14px 16px;
+            margin: 5px auto;
+        }
+
+        .purchase-modal-content h2 {
+            font-size: 18px;
+        }
+
+        .purchase-modal-content input,
+        .purchase-modal-content textarea {
+            padding: 7px;
+            margin-bottom: 5px;
+        }
+    }
 </style>
 
 <section class="products-hero">
@@ -288,10 +287,8 @@
         <article class="product-card">
             <div class="product-visual">
                 <span class="product-label">FOR CHILDREN</span>
-                <img
-                    src="{{ url_for('static', filename='images/Child tag.jpeg') }}"
-                    alt="Children's Safety QR Wristband"
-                    loading="lazy">
+                <img src="{{ url_for('static', filename='images/Child tag.jpeg') }}"
+                    alt="Children's Safety QR Wristband" loading="lazy">
             </div>
 
             <div class="product-info">
@@ -318,10 +315,8 @@
         <article class="product-card">
             <div class="product-visual">
                 <span class="product-label">FOR OLDER ADULTS</span>
-                <img
-                    src="{{ url_for('static', filename='images/Elder tag.jpeg') }}"
-                    alt="Elderly QR Identification Wristband"
-                    loading="lazy">
+                <img src="{{ url_for('static', filename='images/Elder tag.jpeg') }}"
+                    alt="Elderly QR Identification Wristband" loading="lazy">
             </div>
 
             <div class="product-info">
@@ -348,9 +343,7 @@
         <article class="product-card">
             <div class="product-visual">
                 <span class="product-label">FOR TRAVEL</span>
-                <img
-                    src="{{ url_for('static', filename='images/Luggage tag.jpeg') }}"
-                    alt="QR Luggage and Bag Tag"
+                <img src="{{ url_for('static', filename='images/Luggage tag.jpeg') }}" alt="QR Luggage and Bag Tag"
                     loading="lazy">
             </div>
 
@@ -378,9 +371,7 @@
         <article class="product-card">
             <div class="product-visual">
                 <span class="product-label">FOR EVERYDAY USE</span>
-                <img
-                    src="{{ url_for('static', filename='images/Key chain tag.jpeg') }}"
-                    alt="Tagbandhu QR Keychain"
+                <img src="{{ url_for('static', filename='images/Key chain tag.jpeg') }}" alt="Tagbandhu QR Keychain"
                     loading="lazy">
             </div>
 
@@ -397,8 +388,7 @@
                     <li>Privacy-conscious design</li>
                 </ul>
                 <p class="product-price">₹99 <span>/ tag</span></p>
-                <button class="product-button" type="button"
-                    onclick="openPurchaseForm('qr-keychain', 'QR Keychain')">
+                <button class="product-button" type="button" onclick="openPurchaseForm('qr-keychain', 'QR Keychain')">
                     Buy Now – ₹99
                 </button>
             </div>
@@ -421,8 +411,7 @@
 <div id="purchase-modal">
     <div class="purchase-modal-content">
 
-        <button type="button" class="modal-close"
-            onclick="closePurchaseForm()" aria-label="Close">
+        <button type="button" class="modal-close" onclick="closePurchaseForm()" aria-label="Close">
             &times;
         </button>
 
@@ -435,69 +424,91 @@
             <input type="hidden" id="product-code" name="product_code">
 
             <label for="customer-name">Full Name</label>
-            <input id="customer-name" name="customer_name"
-                type="text" maxlength="100" required
-                autocomplete="name">
+            <input id="customer-name" name="customer_name" type="text" maxlength="100" required autocomplete="name">
 
             <label for="customer-email">Email Address</label>
-            <input id="customer-email" name="customer_email"
-                type="email" maxlength="120" required
-                autocomplete="email">
+            <input id="customer-email" name="customer_email" type="email" maxlength="120" required autocomplete="email">
 
             <label for="customer-phone">Mobile Number</label>
-            <input id="customer-phone" name="customer_phone"
-                type="tel" inputmode="numeric"
-                pattern="[0-9]{10}" maxlength="10" required
-                autocomplete="tel">
+            <input id="customer-phone" name="customer_phone" type="tel" inputmode="numeric" pattern="[0-9]{10}"
+                maxlength="10" required autocomplete="tel">
 
             <label for="shipping-address">Delivery Address</label>
-            <textarea id="shipping-address" name="shipping_address"
-                maxlength="500" required
+            <textarea id="shipping-address" name="shipping_address" maxlength="500" required
                 autocomplete="street-address"></textarea>
 
             <label for="shipping-city">City</label>
-            <input id="shipping-city" name="shipping_city"
-                type="text" maxlength="100" required
+            <input id="shipping-city" name="shipping_city" type="text" maxlength="100" required
                 autocomplete="address-level2">
 
             <label for="shipping-state">State</label>
-            <input id="shipping-state" name="shipping_state"
-                type="text" maxlength="100" required
+            <input id="shipping-state" name="shipping_state" type="text" maxlength="100" required
                 autocomplete="address-level1">
 
             <label for="shipping-pincode">PIN Code</label>
-            <input id="shipping-pincode" name="shipping_pincode"
-                type="text" inputmode="numeric"
-                pattern="[0-9]{6}" maxlength="6" required
-                autocomplete="postal-code">
+            <input id="shipping-pincode" name="shipping_pincode" type="text" inputmode="numeric" pattern="[0-9]{6}"
+                maxlength="6" required autocomplete="postal-code">
 
-            <button type="submit" id="pay-button"
-                class="product-button">
+            <button type="submit" id="pay-button" class="product-button">
                 Pay ₹99
             </button>
 
-            <p id="payment-error" role="alert"
-                style="color:#c0392b; margin-top:8px;"></p>
+            <p id="payment-error" role="alert" style="color:#c0392b; margin-top:8px;"></p>
 
         </form>
     </div>
 </div>
 
 <script>
+
     function openPurchaseForm(code, name) {
-        document.getElementById("product-code").value = code;
-        document.getElementById("selected-product").textContent = name;
-        document.getElementById("payment-error").textContent = "";
-        document.getElementById("purchase-modal").style.display = "block";
+    const isLoggedIn = "{{ 'true' if session.get('user_id') else 'false' }}" === "true";
+
+    if (!isLoggedIn) {
+        const nextUrl = new URL(window.location.href);
+        nextUrl.searchParams.set("buy", code);
+
+        window.location.href =
+            "{{ url_for('login') }}" +
+            "?next=" + encodeURIComponent(
+                nextUrl.pathname + nextUrl.search
+            );
+        return;
     }
 
+    document.getElementById("product-code").value = code;
+    document.getElementById("selected-product").textContent = name;
+    document.getElementById("payment-error").textContent = "";
+    document.getElementById("purchase-modal").style.display = "block";
+}
+
+    const params = new URLSearchParams(window.location.search);
+const buyCode = params.get("buy");
+
+const productNames = {
+    "childrens-safety-tag": "Children's Safety Tag",
+    "elderly-wristband": "Elderly Wristband",
+    "luggage-bag-tag": "Luggage & Bag Tag",
+    "qr-keychain": "QR Keychain"
+};
+
+if (buyCode && productNames[buyCode]) {
+    openPurchaseForm(buyCode, productNames[buyCode]);
+
+    // Remove the purchase parameter after opening the form
+    window.history.replaceState(
+        {},
+        document.title,
+        window.location.pathname
+    );
+}
     function closePurchaseForm() {
         document.getElementById("purchase-modal").style.display = "none";
     }
 
     document.getElementById("purchase-form").addEventListener(
         "submit",
-        async function(event) {
+        async function (event) {
             event.preventDefault();
 
             const button = document.getElementById("pay-button");
@@ -560,6 +571,19 @@
             }
         }
     );
+
+    const purchaseProductNames = {
+        "childrens-safety-tag": "Children's Safety Tag",
+        "elderly-wristband": "Elderly Wristband",
+        "luggage-bag-tag": "Luggage & Bag Tag",
+        "qr-keychain": "QR Keychain"
+    };
+    const requestedProductCode = new URLSearchParams(window.location.search).get("buy");
+    const requestedProductName = purchaseProductNames[requestedProductCode];
+
+    if (requestedProductName) {
+        openPurchaseForm(requestedProductCode, requestedProductName);
+    }
 </script>
 
 {% endblock %}

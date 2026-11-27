@@ -17,6 +17,7 @@ from flask import g
 import os
 import requests
 import secrets
+from urllib.parse import urlsplit
 from werkzeug.security import generate_password_hash, check_password_hash
 import time
 import qrcode
@@ -1571,7 +1572,10 @@ def register():
         ):
             flash("Please enter a valid email address.", "error")
             return render_template("register.html")
-
+        # Allow only Gmail addresses
+        if not email.endswith("@gmail.com"):
+            flash("Only Gmail addresses ending with @gmail.com are allowed.", "error")
+            return render_template("register.html")
         # Check common email domain typos
         suggested_email = get_email_typo_suggestion(email)
         if suggested_email:
@@ -1729,10 +1733,14 @@ def register():
 @app.route("/verify-email", methods=["GET", "POST"])
 def verify_email():
     email = request.args.get("email", "").strip().lower()
+    next_candidate = request.args.get("next", "")
 
     if request.method == "POST":
         email = request.form.get("email", email).strip().lower()
         otp = request.form.get("otp", "").strip()
+        next_candidate = request.form.get("next", next_candidate)
+
+    next_url = next_candidate if is_safe_redirect_target(next_candidate) else ""
 
     user = db.session.scalar(
         db.select(User).filter_by(email=email)
@@ -1744,32 +1752,32 @@ def verify_email():
 
     if user.email_verified:
         flash("Your email is already verified. Please log in.", "success")
-        return redirect(url_for("login"))
+        return redirect(url_for("login", next=next_url) if next_url else url_for("login"))
 
     if request.method == "POST":
         now = datetime.now(timezone.utc).replace(tzinfo=None)
 
         if not re.fullmatch(r"[0-9]{6}", otp):
             flash("Please enter a valid 6-digit verification code.", "error")
-            return render_template("verify_email.html", email=email)
+            return render_template("verify_email.html", email=email, next_url=next_url)
 
         if user.email_otp_attempts >= 5:
             flash("Too many attempts. Please request a new verification code.", "error")
-            return render_template("verify_email.html", email=email)
+            return render_template("verify_email.html", email=email, next_url=next_url)
 
         if (
             not user.email_otp_expires_at
             or now > user.email_otp_expires_at
         ):
             flash("Your verification code has expired. Please request a new one.", "error")
-            return render_template("verify_email.html", email=email)
+            return render_template("verify_email.html", email=email, next_url=next_url)
 
         user.email_otp_attempts += 1
 
         if not check_password_hash(user.email_otp_hash or "", otp):
             db.session.commit()
             flash("Incorrect verification code. Please try again.", "error")
-            return render_template("verify_email.html", email=email)
+            return render_template("verify_email.html", email=email, next_url=next_url)
 
         user.email_verified = True
         user.email_otp_hash = None
@@ -1778,13 +1786,20 @@ def verify_email():
         db.session.commit()
 
         flash("Email verified successfully! You can now log in.", "success")
-        return redirect(url_for("login"))
+        return redirect(url_for("login", next=next_url) if next_url else url_for("login"))
 
-    return render_template("verify_email.html", email=email)
+    return render_template("verify_email.html", email=email, next_url=next_url)
 
 @app.route("/resend-verification", methods=["POST"])
 def resend_verification():
     email = request.form.get("email", "").strip().lower()
+    next_candidate = request.form.get("next", "")
+    next_url = next_candidate if is_safe_redirect_target(next_candidate) else ""
+    verify_url = (
+        url_for("verify_email", email=email, next=next_url)
+        if next_url
+        else url_for("verify_email", email=email)
+    )
 
     user = db.session.scalar(
         db.select(User).filter_by(email=email)
@@ -1796,7 +1811,7 @@ def resend_verification():
 
     if user.email_verified:
         flash("Your email is already verified. Please log in.", "success")
-        return redirect(url_for("login"))
+        return redirect(url_for("login", next=next_url) if next_url else url_for("login"))
 
     now = datetime.now(timezone.utc).replace(tzinfo=None)
 
@@ -1809,7 +1824,7 @@ def resend_verification():
                 f"Please wait {wait_seconds} seconds before requesting another code.",
                 "error",
             )
-            return redirect(url_for("verify_email", email=email))
+            return redirect(verify_url)
 
     otp = str(secrets.randbelow(900000) + 100000)
 
@@ -1830,7 +1845,7 @@ def resend_verification():
     except Exception:
         app.logger.exception("Failed to resend verification email.")
         flash("Could not send a new code. Please try again later.", "error")
-        return redirect(url_for("verify_email", email=email))
+        return redirect(verify_url)
 
     user.email_otp_hash = generate_password_hash(otp)
     user.email_otp_expires_at = now + timedelta(minutes=5)
@@ -1839,10 +1854,19 @@ def resend_verification():
     db.session.commit()
 
     flash("A new verification code has been sent to your email.", "success")
-    return redirect(url_for("verify_email", email=email))
+    return redirect(verify_url)
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
+    next_candidate = request.args.get("next", "")
+    if request.method == "POST":
+        next_candidate = request.form.get("next", next_candidate)
+    next_url = (
+        next_candidate
+        if is_safe_redirect_target(next_candidate)
+        else ""
+    )
+
     if request.method == "POST":
         email = request.form.get("email", "").strip().lower()
         password = request.form.get("password", "")
@@ -1858,24 +1882,58 @@ def login():
                     "Please verify your email before logging in.",
                     "error",
                 )
-                return redirect(url_for("verify_email", email=user.email))
+                verify_url = (
+                    url_for("verify_email", email=user.email, next=next_url)
+                    if next_url
+                    else url_for("verify_email", email=user.email)
+                )
+                return redirect(verify_url)
 
             # Prevent deactivated users from logging in
             if not user.is_active:
                 flash("Your account has been deactivated. Please contact support.")
-                return redirect(url_for("login"))
+                login_url = url_for("login", next=next_url) if next_url else url_for("login")
+                return redirect(login_url)
 
             session.clear()
             session["user_id"] = user.id
             session["user_name"] = user.name
             session["user_email"] = user.email
 
+            next_url = request.args.get("next", "")
+
+            if (
+                next_url.startswith("/")
+                and not next_url.startswith("//")
+                 and "\\" not in next_url
+            ):
+               return redirect(next_url)
+
             return redirect(url_for("dashboard"))
 
         flash("Invalid email or password.")
-        return redirect(url_for("login"))
+        login_url = url_for("login", next=next_url) if next_url else url_for("login")
+        return redirect(login_url)
 
-    return render_template("login.html")
+    return render_template("login.html", next_url=next_url)
+
+
+def is_safe_redirect_target(target):
+    if (
+        not target
+        or target.startswith("//")
+        or "\\" in target
+        or any(ord(char) < 32 for char in target)
+    ):
+        return False
+
+    parsed = urlsplit(target)
+    return (
+        not parsed.scheme
+        and not parsed.netloc
+        and parsed.path.startswith("/")
+        and not parsed.path.startswith("//")
+    )
 
 
 @app.route("/dashboard")

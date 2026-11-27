@@ -281,11 +281,12 @@
         </p>
 
 
-        <form method="POST" action="{{ url_for('verify_email', email=email) }}">
+        <form method="POST" action="{{ url_for('verify_email', email=email, next=next_url) }}">
 
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
             <input type="hidden" name="email" value="{{ email }}">
+            <input type="hidden" name="next" value="{{ next_url }}">
 
             <label class="verify-label" for="otp">
                 Verification code
@@ -322,6 +323,7 @@
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
             <input type="hidden" name="email" value="{{ email }}">
+            <input type="hidden" name="next" value="{{ next_url }}">
 
             <button type="submit" class="verify-resend">
                 Resend verification code

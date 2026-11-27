@@ -30,9 +30,12 @@
                 pattern="[6-9][0-9]{9}" maxlength="10" autocomplete="tel-national"
                 title="Enter a valid 10-digit Indian mobile number." required>
 
-            <label for="email">Email address</label>
-            <input type="email" id="email" name="email" placeholder="you@example.com" maxlength="120"
-                autocomplete="email" required>
+
+            <label for="email">Gmail address</label>
+            <input type="email" id="email" name="email" placeholder="you@gmail.com" maxlength="120" autocomplete="email"
+                pattern="[A-Za-z0-9.!#$%&amp;'*+/=?^_`{|}~-]+@gmail\.com"
+                title="Please enter an email address ending with @gmail.com." required>
+
 
             <label for="password">Create password</label>
 
@@ -261,37 +264,6 @@
                     "gmil.com": "gmail.com",
                     "g-mail.com": "gmail.com",
                     "gmailcom": "gmail.com",
-
-                    // Yahoo
-                    "yaho.com": "yahoo.com",
-                    "yahooo.com": "yahoo.com",
-                    "yahoo.con": "yahoo.com",
-                    "yahoo.co": "yahoo.com",
-                    "yhaoo.com": "yahoo.com",
-                    "yhoo.com": "yahoo.com",
-                    "yaoo.com": "yahoo.com",
-
-                    // Outlook
-                    "outlok.com": "outlook.com",
-                    "outloo.com": "outlook.com",
-                    "outlook.con": "outlook.com",
-                    "outlook.co": "outlook.com",
-                    "outllok.com": "outlook.com",
-                    "outook.com": "outlook.com",
-
-                    // Hotmail
-                    "hotnail.com": "hotmail.com",
-                    "hotmai.com": "hotmail.com",
-                    "hotmail.con": "hotmail.com",
-                    "hotmial.com": "hotmail.com",
-                    "hotmil.com": "hotmail.com",
-
-                    // Other common mistakes
-                    "gmaill.co": "gmail.com",
-                    "mail.com": "gmail.com",
-                    "icloud.con": "icloud.com",
-                    "iclould.com": "icloud.com",
-                    "protonmai.com": "protonmail.com"
                 };
 
                 const parts = email.split("@");
