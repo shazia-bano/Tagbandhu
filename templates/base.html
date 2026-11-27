@@ -32,6 +32,8 @@
 
             {% if session.get('user_id') %}
             <a href="{{ url_for('dashboard') }}">Dashboard</a>
+            <a href="{{ url_for('my_orders') }}">My Orders</a>
+
             <a href="{{ url_for('logout') }}"
                 onclick="event.preventDefault(); document.getElementById('navbar-logout-form').submit();">
                 Logout
@@ -116,7 +118,7 @@
             });
         }
     </script>
-<script src="https://sdk.cashfree.com/js/v3/cashfree.js"></script>
+    <script src="https://sdk.cashfree.com/js/v3/cashfree.js"></script>
 
 </body>
 

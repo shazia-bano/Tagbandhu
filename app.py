@@ -172,7 +172,11 @@ class TagActivity(db.Model):
 
 class TagOrder(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-
+    user_id = db.Column(
+    db.Integer,
+    db.ForeignKey("user.id"),
+    nullable=True
+   )
     order_id = db.Column(db.String(45), unique=True, nullable=False)
     product_code = db.Column(db.String(50), nullable=False)
     product_name = db.Column(db.String(100), nullable=False)
@@ -613,6 +617,20 @@ def api_login():
         }
     )
 
+@app.route("/my-orders")
+def my_orders():
+    if "user_id" not in session:
+        return redirect(url_for("login", next="/my-orders"))
+
+    user_id = session["user_id"]
+
+    orders = db.session.scalars(
+        db.select(TagOrder)
+        .filter_by(user_id=user_id)
+        .order_by(TagOrder.created_at.desc())
+    ).all()
+
+    return render_template("my_orders.html", orders=orders)
 
 @app.route("/api/my-tags", methods=["GET"])
 def api_my_tags():
@@ -784,6 +802,7 @@ def create_payment_order():
 
     new_order = TagOrder(
         order_id=order_id,
+        user_id=session.get("user_id"),
         product_code=product_code,
         product_name=products[product_code],
         amount=99.00,
@@ -933,7 +952,9 @@ def payment_return():
         app.logger.exception("Cashfree payment verification failed.")
         flash("We could not verify your payment. Please try again later.")
 
-    return redirect(url_for("products"))
+    if "user_id" in session:
+        return redirect(url_for("my_orders"))
+    return redirect(url_for("login", next="/my-orders"))
 
 @app.route("/scan/<tag_code>")
 def scan_tag(tag_code):
