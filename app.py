@@ -688,37 +688,6 @@ def api_my_tags():
             ],
         }
     )
-
-@app.route("/admin/run-migrations", methods=["POST"])
-@csrf.exempt
-def run_migrations():
-    expected_secret = os.environ.get("MIGRATION_SECRET", "")
-    provided_secret = request.headers.get("X-Migration-Secret", "")
-    print(
-       "MIGRATION CHECK:",
-       "configured =", bool(expected_secret),
-       "provided =", bool(provided_secret),
-       "match =", (
-            secrets.compare_digest(expected_secret, provided_secret)
-            if expected_secret and provided_secret
-            else False
-         ),
-       flush=True
-    )
-
-    if (
-        not expected_secret
-        or not secrets.compare_digest(provided_secret, expected_secret)
-    ):
-        return "Unauthorized", 401
-
-    try:
-        upgrade()
-        return "Database migration completed.", 200
-    except Exception:
-        db.session.rollback()
-        app.logger.exception("Database migration failed.")
-        return "Migration failed. Check application logs.", 500
     
 @app.route("/api/profile", methods=["GET", "PUT"])
 @csrf.exempt
